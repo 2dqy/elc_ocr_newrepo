@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医疗图像分析</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- 添加FontAwesome图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+
+        <header>
+            <h1><i class="fas fa-heartbeat"></i> 医疗图像分析系统</h1>
+            <p>上传医疗设备图像，快速识别血压、血糖等信息</p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <div class="card">
+                    <div class="card-body">
+                        <h2><i class="fas fa-upload"></i> 图像上传</h2>
+                        
+                        <div class="upload-container" id="dropZone">
+                            <div class="upload-content" id="uploadContent">
+                                <i class="fas fa-file-medical-alt upload-icon"></i>
+                                <p>拖放图像到此处或点击选择文件</p>
+                                <p class="upload-hint">支持JPG、PNG格式，大小不超过500KB</p>
+                            </div>
+                            
+                            <div class="image-preview" id="imagePreview" style="display: none;">
+                                <img id="previewImg" src="" alt="预览图像">
+                                <button class="remove-btn" id="removeImage"><i class="fas fa-times"></i></button>
+                            </div>
+                            
+                            <input type="file" id="fileInput" accept="image/*" hidden>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="tokenInput"><i class="fas fa-key"></i> 验证令牌</label>
+                            <input type="text" id="tokenInput" placeholder="请输入您的访问令牌" required>
+                        </div>
+                        
+                        <button id="uploadButton" class="btn primary-btn" disabled>
+                            <i class="fas fa-paper-plane"></i> 开始分析
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="result-section" id="resultSection" style="display: none;">
+                <div class="card">
+                    <div class="card-body">
+                        <h2><i class="fas fa-chart-line"></i> 分析结果</h2>
+                        <div class="loader" id="loader">
+                            <div class="spinner"></div>
+                            <p>分析中，请稍候...</p>
+                        </div>
+                        
+                        <div id="resultContent" style="display: none;">
+                            <pre id="jsonResult" class="json-display"></pre>
+                            
+                            <button id="newAnalysisBtn" class="btn secondary-btn">
+                                <i class="fas fa-redo"></i> 新的分析
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2023 医疗图像分析系统 | 隐私政策 | 使用条款</p>
+        </footer>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
+
+
