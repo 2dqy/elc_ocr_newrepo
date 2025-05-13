@@ -34,9 +34,6 @@ app.add_middleware(
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 创建上传目录
-# os.makedirs("uploads", exist_ok=True)
-
 # 获取API密钥和配置参数
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 HOST = os.getenv("HOST")
@@ -176,25 +173,28 @@ async def upload_image(
     返回:
         图像分析结果的JSON响应
     """
+    # 开始计时
+    start_time = time.time()
+    
     # 检查token是否有效
     verify_token(token)
-
+    
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
     # 获取时间戳
     timestamp = int(time.time())
-
+    
     # 检查文件是否为图像
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="只能上传图像文件")
-
+    
     # 读取文件内容
     file_content = await file.read()
-
+    
     # 检查文件大小
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="文件大小超过500KB限制")
-
+    
     try:
         # 处理图像
         processed_image = process_image(file_content)
@@ -278,6 +278,18 @@ async def upload_image(
                     if "data" in ocr_dict and ocr_dict["data"]:
                         ocr_dict["data"]["measure_date"] = current_date
                     
+                    # 根据category删除不需要的字段
+                    if "data" in ocr_dict and ocr_dict["data"] and "category" in ocr_dict["data"]:
+                        category = ocr_dict["data"]["category"]
+                        if category == "blood_pressure":
+                            # 血压数据，删除blood_sugar字段
+                            if "blood_sugar" in ocr_dict["data"]:
+                                del ocr_dict["data"]["blood_sugar"]
+                        elif category == "blood_sugar":
+                            # 血糖数据，删除blood_pressure字段
+                            if "blood_pressure" in ocr_dict["data"]:
+                                del ocr_dict["data"]["blood_pressure"]
+                    
                     response_data = {
                         "status": ocr_dict["status"],
                         "message": ocr_dict["message"],
@@ -342,6 +354,13 @@ async def upload_image(
                 "timestamp": timestamp
             }
             print(f"OCR API调用错误: {str(api_error)}")
+        
+        # 计算执行时间
+        execution_time = time.time() - start_time
+        print(f"处理完成，执行时间: {execution_time:.2f}秒")
+        
+        # 将执行时间添加到响应中
+        response_data["execution_time"] = f"{execution_time:.2f}秒"
         
         return JSONResponse(content=response_data)
 
