@@ -35,7 +35,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 创建上传目录
-os.makedirs("uploads", exist_ok=True)
+# os.makedirs("uploads", exist_ok=True)
 
 # 获取API密钥和配置参数
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
