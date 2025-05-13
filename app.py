@@ -1,26 +1,23 @@
+from datetime import datetime
 import os
 import time
+import uuid
 import io
 import base64
+
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageEnhance
 import dashscope
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Request
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from dotenv import load_dotenv
-import sqlite3
-from datetime import datetime
+
 from database import Database
-import uuid
+
 # 加载.env环境变量
 load_dotenv()
-
-# 获取API密钥和配置参数
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
-HOST = os.getenv("HOST")
-PORT = int(os.getenv("PORT"))
 
 # 创建FastAPI应用程序
 app = FastAPI(title="医疗图像分析API", description="识别图像中的血压、血糖等信息")
@@ -37,16 +34,22 @@ app.add_middleware(
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# 创建上传目录
+os.makedirs("uploads", exist_ok=True)
+
+# 获取API密钥和配置参数
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
+HOST = os.getenv("HOST")
+PORT = int(os.getenv("PORT"))
+
 # 图像处理参数
 MIN_PIXELS = int(os.getenv("MIN_PIXELS", 28 * 28 * 4))  # 最小像素阈值
 MAX_PIXELS = int(os.getenv("MAX_PIXELS", 28 * 28 * 8192))  # 最大像素阈值
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大小（500KB）
 
-# 创建上传目录
-os.makedirs("uploads", exist_ok=True)
-
 # 初始化数据库
 db = Database()
+
 
 # 验证token
 def verify_token(token: str = Form(...)):
@@ -54,23 +57,24 @@ def verify_token(token: str = Form(...)):
     try:
         # 使用Database类连接MySQL
         db = Database()
-        
+
         # 查询token是否存在及其使用次数
         db.cursor.execute("SELECT use_times FROM tokens WHERE token=%s", (token,))
         print("token:", token)
         result = db.cursor.fetchone()
         print("result:", result)
-        
+
         if not result:
             raise HTTPException(status_code=401, detail="TOKEN_NOT_FOUND")
-        
+
         if result[0] <= 0:
             raise HTTPException(status_code=403, detail="TOKEN_USED_UP")
-        
+
         return token
     except Exception as e:
         print(f"Token验证错误: {str(e)}")
         raise HTTPException(status_code=500, detail=f"TOKEN_VERIFY_ERROR: {str(e)}")
+
 
 # 更新token使用次数
 def update_token_usage(token: str):
@@ -78,11 +82,11 @@ def update_token_usage(token: str):
     try:
         # 使用Database类连接MySQL
         db = Database()
-        
+
         # 更新使用次数
         db.cursor.execute("UPDATE tokens SET use_times = use_times - 1 WHERE token=%s", (token,))
         db.conn.commit()
-        
+
         print(f"Token {token} 使用次数已更新")
     except Exception as e:
         print(f"更新Token使用次数错误: {str(e)}")
@@ -98,6 +102,7 @@ async def get_favicon():
     else:
         # 如果没有图标，返回404
         raise HTTPException(status_code=404, detail="Favicon not found")
+
 
 def process_image(image_data):
     """
@@ -120,11 +125,10 @@ def process_image(image_data):
     elif img.mode != "RGB":
         img = img.convert("RGB")
 
-
     # 计算当前图像的像素总数
     width, height = img.size
     total_pixels = width * height
-    
+
     # 调整图像大小以符合像素要求
     if total_pixels < MIN_PIXELS:
         # 放大图像
@@ -138,29 +142,30 @@ def process_image(image_data):
         new_width = int(width * scale_factor)
         new_height = int(height * scale_factor)
         img = img.resize((new_width, new_height), Image.LANCZOS)
-    
+
     # 增强亮度 - 提高20%
     enhancer = ImageEnhance.Brightness(img)
     img = enhancer.enhance(1.2)
-    
+
     # 增强对比度 - 提高30%
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(1.3)
-    
+
     # 锐化图像 - 轻微锐化
     enhancer = ImageEnhance.Sharpness(img)
     img = enhancer.enhance(1.5)
-    
+
     # 保存为JPEG字节流
     output_buffer = io.BytesIO()
     img.save(output_buffer, format='JPEG', quality=95)
-    
+
     return output_buffer.getvalue()
+
 
 @app.post("/upload/image")
 async def upload_image(
-    file: UploadFile = File(...),
-    token: str = Form(...)
+        file: UploadFile = File(...),
+        token: str = Form(...)
 ):
     """
     上传并分析单张医疗图像
@@ -173,47 +178,47 @@ async def upload_image(
     """
     # 检查token是否有效
     verify_token(token)
-    
+
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
-    
+
     # 检查文件是否为图像
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="只能上传图像文件")
-    
+
     # 读取文件内容
     file_content = await file.read()
-    
+
     # 检查文件大小
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="文件大小超过500KB限制")
-    
+
     try:
         # 处理图像
         processed_image = process_image(file_content)
-        
+
         # 保存处理后的图像到临时文件
         timestamp = int(time.time())
         temp_filename = f"uploads/temp_{timestamp}.jpg"
         with open(temp_filename, "wb") as f:
             f.write(processed_image)
-        
+
         # 图像的base64编码（用于API调用）
         image_base64 = base64.b64encode(processed_image).decode("utf-8")
-        
+
         try:
             # 使用DashScope API进行OCR分析
             messages = [{
                 "role": "user",
                 "content": [{
                     "image": f"data:image/jpeg;base64,{image_base64}",
-                    "min_pixels": MIN_PIXELS, 
+                    "min_pixels": MIN_PIXELS,
                     "max_pixels": MAX_PIXELS,
                     "enable_rotate": True
                 },
-                {
-                    "type": "text", 
-                    "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
+                    {
+                        "type": "text",
+                        "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
 
                     1. 设备类型判断：
                        - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
@@ -251,23 +256,23 @@ async def upload_image(
                     4. 请根据数值给出专业的健康建议
                     5. 确保分析准确，不要捏造数据
                     """
-                }]
+                    }]
             }]
-            
+
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
                 messages=messages
             )
-            
+
             # 检查API响应状态
             if response.status_code == 200:
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"][0]["text"]
                 # 移除JSON格式标记和换行符，并转换为字典
                 ocr_result = raw_result.replace('\n', '').replace('    ', '').replace('```json', '').replace('```', '')
-                
+
                 # 构建完整响应
                 try:
                     # 将字符串转换为字典
@@ -276,7 +281,7 @@ async def upload_image(
                     # 替换日期为当前日期
                     if "data" in ocr_dict and ocr_dict["data"]:
                         ocr_dict["data"]["measure_date"] = current_date
-                    
+
                     response_data = {
                         "status": ocr_dict["status"],
                         "message": ocr_dict["message"],
@@ -290,7 +295,7 @@ async def upload_image(
                         "source_ip": "127.0.0.1",
                         "timestamp": timestamp
                     }
-                    
+
                     # 如果OCR识别成功，更新token使用次数
                     if ocr_dict["status"] == "success":
                         update_token_usage(token)
@@ -324,7 +329,7 @@ async def upload_image(
                     "timestamp": timestamp
                 }
                 print(f"API错误: {response.code} - {response.message}")
-                
+
         except Exception as api_error:
             # 处理API调用错误
             response_data = {
@@ -341,12 +346,12 @@ async def upload_image(
                 "timestamp": timestamp
             }
             print(f"OCR API调用错误: {str(api_error)}")
-        
+
         # 清理临时文件
         # os.remove(temp_filename)
-        
+
         return JSONResponse(content=response_data)
-        
+
     except Exception as e:
         # 处理可能发生的错误
         print(f"处理错误: {str(e)}")
@@ -379,10 +384,8 @@ async def add_token(request: Request, token_data: dict):
                 }
             )
 
-
-
     # 设置默认值
-    token = token_data.get("token",'')
+    token = token_data.get("token", '')
     # 如果token包含非字母数字字符，返回HTTP错误400
     if not token.isalnum():
         raise HTTPException(
@@ -433,7 +436,6 @@ async def add_token(request: Request, token_data: dict):
                 }]
             }
         )
-
 
     if not db.center_id_exists(center_id):
         raise HTTPException(
@@ -490,6 +492,7 @@ async def add_token(request: Request, token_data: dict):
         }
     }
 
+
 @app.get("/")
 async def health_check():
     from datetime import datetime
@@ -497,6 +500,7 @@ async def health_check():
         "status": "server測試成功",
         "server_time": datetime.utcnow().isoformat()
     }
+
 
 if __name__ == "__main__":
     # 启动FastAPI应用

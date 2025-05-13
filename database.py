@@ -1,15 +1,16 @@
 import pymysql
-
-
-
+import os
+from dotenv import load_dotenv
+# 加载环境变量
+load_dotenv()
 class Database:
     def __init__(self, db_name='ocr'):
         self.conn = pymysql.connect(
-            host='localhost',
-            user='root',
-            password='',
-            database=db_name,
-            port=3306
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            database=os.getenv('DB_NAME'),
+            port=int(os.getenv('DB_PORT'))
         )
         self.cursor = self.conn.cursor()
 
