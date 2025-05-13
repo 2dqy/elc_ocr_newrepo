@@ -181,6 +181,8 @@ async def upload_image(
 
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
+    # 获取时间戳
+    timestamp = int(time.time())
 
     # 检查文件是否为图像
     if not file.content_type.startswith("image/"):
@@ -196,29 +198,23 @@ async def upload_image(
     try:
         # 处理图像
         processed_image = process_image(file_content)
-
-        # 保存处理后的图像到临时文件
-        timestamp = int(time.time())
-        temp_filename = f"uploads/temp_{timestamp}.jpg"
-        with open(temp_filename, "wb") as f:
-            f.write(processed_image)
-
+        
         # 图像的base64编码（用于API调用）
         image_base64 = base64.b64encode(processed_image).decode("utf-8")
-
+        
         try:
             # 使用DashScope API进行OCR分析
             messages = [{
                 "role": "user",
                 "content": [{
                     "image": f"data:image/jpeg;base64,{image_base64}",
-                    "min_pixels": MIN_PIXELS,
+                    "min_pixels": MIN_PIXELS, 
                     "max_pixels": MAX_PIXELS,
                     "enable_rotate": True
                 },
-                    {
-                        "type": "text",
-                        "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
+                {
+                    "type": "text", 
+                    "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
 
                     1. 设备类型判断：
                        - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
@@ -244,7 +240,7 @@ async def upload_image(
                                 "pul": "心率值"
                             },
                             "blood_sugar": {
-                                "value": "血糖值",                            },
+                                "value": "血糖值"                            },
                             "suggest": "基于数据的AI健康建议"
                         }
                     }
@@ -256,23 +252,23 @@ async def upload_image(
                     4. 请根据数值给出专业的健康建议
                     5. 确保分析准确，不要捏造数据
                     """
-                    }]
+                }]
             }]
-
+            
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
                 messages=messages
             )
-
+            
             # 检查API响应状态
             if response.status_code == 200:
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"][0]["text"]
                 # 移除JSON格式标记和换行符，并转换为字典
                 ocr_result = raw_result.replace('\n', '').replace('    ', '').replace('```json', '').replace('```', '')
-
+                
                 # 构建完整响应
                 try:
                     # 将字符串转换为字典
@@ -281,7 +277,7 @@ async def upload_image(
                     # 替换日期为当前日期
                     if "data" in ocr_dict and ocr_dict["data"]:
                         ocr_dict["data"]["measure_date"] = current_date
-
+                    
                     response_data = {
                         "status": ocr_dict["status"],
                         "message": ocr_dict["message"],
@@ -295,7 +291,7 @@ async def upload_image(
                         "source_ip": "127.0.0.1",
                         "timestamp": timestamp
                     }
-
+                    
                     # 如果OCR识别成功，更新token使用次数
                     if ocr_dict["status"] == "success":
                         update_token_usage(token)
@@ -329,7 +325,7 @@ async def upload_image(
                     "timestamp": timestamp
                 }
                 print(f"API错误: {response.code} - {response.message}")
-
+                
         except Exception as api_error:
             # 处理API调用错误
             response_data = {
@@ -346,10 +342,7 @@ async def upload_image(
                 "timestamp": timestamp
             }
             print(f"OCR API调用错误: {str(api_error)}")
-
-        # 清理临时文件
-        # os.remove(temp_filename)
-
+        
         return JSONResponse(content=response_data)
 
     except Exception as e:
