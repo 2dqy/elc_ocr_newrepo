@@ -264,6 +264,8 @@ async def upload_image(
             
             # 检查API响应状态
             if response.status_code == 200:
+                print(response.usage)
+
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"][0]["text"]
                 # 移除JSON格式标记和换行符，并转换为字典
