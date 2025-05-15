@@ -3,6 +3,8 @@
  * 处理图像上传、预览、处理与分析结果显示
  */
 
+const API_BASE_URL = 'https://2dqy-ocr.vercel.app';
+
 // DOM元素
 const dropZone = document.getElementById('dropZone');
 const uploadContent = document.getElementById('uploadContent');
@@ -29,7 +31,6 @@ const newAnalysisBtn = document.getElementById('newAnalysisBtn');
 let selectedFile = null;
 
 // API配置
-const API_BASE_URL = 'http://localhost:8000';
 
 /**
  * 初始化上传区域事件监听
@@ -270,5 +271,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initUploadArea();
 
     // 预先填充一个令牌便于测试
-    tokenInput.value = '123';
+    tokenInput.value = 'bobtest';
 });
