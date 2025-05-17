@@ -507,13 +507,26 @@ async def add_token(request: Request, token_data: dict):
     }
 
 
+
 @app.get("/")
+async def read_root():
+    """返回HTML首页"""
+    return FileResponse("static/index.html")
+
+# 原来的健康检查接口改为新的路径
+@app.get("/health")
 async def health_check():
     from datetime import datetime
     return {
         "status": "server測試成功",
         "server_time": datetime.utcnow().isoformat()
     }
+
+
+if __name__ == "__main__":
+    # 启动FastAPI应用
+    uvicorn.run("app:app", host=HOST, port=PORT, reload=True)
+
 
 
 if __name__ == "__main__":
