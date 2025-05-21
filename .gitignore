@@ -1,6 +1,7 @@
 .DS_Store
 ../.idea
-back_end/.env
+.venv
+.idea
 .env
 *.pyc
 *.pyo
