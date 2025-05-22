@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from app.schemas.token import TokenCreate, TokenResponse, ErrorResponse
 from app.services.token_service import create_token, get_ip_prefix
-from app.db.database import Database
+from app.models.database import IPRepository
 
 router = APIRouter()
 
@@ -17,9 +17,6 @@ async def add_token(request: Request, token_data: TokenCreate):
     Returns:
         新创建的token信息
     """
-    # 获取数据库连接
-    db = Database()
-    
     # 获取并验证客户端IP
     client_ip = request.client.host if request.client else None
     if not client_ip:
@@ -34,7 +31,7 @@ async def add_token(request: Request, token_data: TokenCreate):
         )
     
     # 验证IP白名单
-    allowed_ips = db.get_allowed_ips()
+    allowed_ips = IPRepository.get_allowed_ips()
     client_prefix = get_ip_prefix(client_ip)
     allowed_prefixes = [get_ip_prefix(ip) for ip in allowed_ips]
     

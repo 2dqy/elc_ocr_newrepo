@@ -1,5 +1,63 @@
 import sqlite3
 from typing import Optional
+import pymysql
+from contextlib import contextmanager
+from typing import Generator
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
+
+class DatabaseConfig:
+    """数据库配置类"""
+    HOST: str = os.getenv('DB_HOST', 'localhost')
+    USER: str = os.getenv('DB_USER', 'root')
+    PASSWORD: str = os.getenv('DB_PASSWORD', '')
+    DATABASE: str = os.getenv('DB_NAME', 'ocr')
+    PORT: int = int(os.getenv('DB_PORT', 3306))
+
+class DatabaseSession:
+    """数据库会话管理类"""
+    
+    @staticmethod
+    def get_connection():
+        """获取数据库连接"""
+        return pymysql.connect(
+            host=DatabaseConfig.HOST,
+            user=DatabaseConfig.USER,
+            password=DatabaseConfig.PASSWORD,
+            database=DatabaseConfig.DATABASE,
+            port=DatabaseConfig.PORT,
+            cursorclass=pymysql.cursors.DictCursor  # 使用字典游标
+        )
+
+    @contextmanager
+    def get_cursor(self) -> Generator[pymysql.cursors.DictCursor, None, None]:
+        """
+        获取数据库游标的上下文管理器
+        
+        使用示例:
+        ```python
+        with DatabaseSession().get_cursor() as cursor:
+            cursor.execute("SELECT * FROM table")
+            result = cursor.fetchall()
+        ```
+        """
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            yield cursor
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+# 创建全局数据库会话实例
+db_session = DatabaseSession()
 
 class Database:
     """数据库连接管理类"""
