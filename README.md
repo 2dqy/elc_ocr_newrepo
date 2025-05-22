@@ -39,15 +39,13 @@ cd <project_directory>
 
 2. 创建虚拟环境：
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或
-.\venv\Scripts\activate  # Windows
+uv init
+uv venv
 ```
 
 3. 安装依赖：
 ```bash
-pip install -r requirements.txt
+uv add -r requirements.txt
 ```
 
 4. 配置环境变量：
