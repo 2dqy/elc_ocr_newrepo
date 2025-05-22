@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 
 from app.core.config import settings
+from app.core.error_handlers import add_error_handlers
 from app.api.v1.endpoints import token
 
 # 创建FastAPI应用程序
@@ -11,6 +12,9 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="识别图像中的血压、血糖等信息"
 )
+
+# 添加错误处理器
+add_error_handlers(app)
 
 # 配置CORS
 app.add_middleware(
@@ -47,7 +51,7 @@ async def read_root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "api.v1.app:app",
+        "main:app",
         host=settings.HOST,
         port=settings.PORT,
         reload=True

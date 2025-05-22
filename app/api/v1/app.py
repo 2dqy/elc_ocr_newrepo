@@ -286,9 +286,9 @@ async def add_token(request: Request, token_data: dict):
 
     # 验证center_id是否存在
     if "center_id" not in token_data:
-        raise HTTPException(
+        return JSONResponse(
             status_code=403,
-            detail={
+            content={
                 "errors": [{
                     "message": "center_id为必填項",
                     "extensions": {
@@ -300,23 +300,25 @@ async def add_token(request: Request, token_data: dict):
 
     center_id = token_data["center_id"]
     if not db.center_id_exists(center_id):
-        raise HTTPException(
+        return JSONResponse(
             status_code=403,
-            detail={
-                "errors": [{
-                    "message": "无效的center_id",
-                    "extensions": {
-                        "code": "FORBIDDEN",
+            content={
+                "errors": [
+                    {
+                        "message": "You don't have permission to \"create\" from collection \"tokenCreate\" or it does not exist.",
+                        "extensions": {
+                            "reason": "You don't have permission to \"create\" from collection \"tokenCreate\" or it does not exist.",
+                            "code": "FORBIDDEN"
+                        }
                     }
-                }]
-            }
-        )
+                ]
+            })
 
     # IP 验证：检查前三位是否匹配
     if not client_ip:
-        raise HTTPException(
+        return JSONResponse(
             status_code=403,
-            detail={
+            content={
                 "errors": [{
                     "message": "無法獲取客戶端 IP",
                     "extensions": {"code": "IP_DENY"}
@@ -327,12 +329,12 @@ async def add_token(request: Request, token_data: dict):
     client_prefix = get_ip_prefix(client_ip)
     allowed_prefixes = [get_ip_prefix(ip) for ip in ALLOWED_IPS]
     if client_prefix not in allowed_prefixes:
-        raise HTTPException(
+        return JSONResponse(
             status_code=403,
-            detail={
+            content={
                 "errors": [{
                     "message": "IP 使用有限制",
-                    "extensions": {"code": "IP_DENY", "reason": "请联系info@2dqy.com或bob@2dqy.com"}
+                    # "extensions": {"code": "IP_DENY", "reason": "请联系info@2dqy.com或bob@2dqy.com"}
                 }]
             }
         )
@@ -345,9 +347,9 @@ async def add_token(request: Request, token_data: dict):
         token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
     # 如果token包含非字母数字字符，返回HTTP错误400
     elif not token.isalnum():
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail={
+            content={
                 "errors": [{
                     "message": "Token只能包含字母和數字",
                     "extensions": {
@@ -360,17 +362,19 @@ async def add_token(request: Request, token_data: dict):
     # 获取并处理use_times参数，默认值为10
     use_times = token_data.get("use_times", 10)
 
-    # 检查token是否已存在
+    # 检查 token 是否存在
     if db.token_exists(token):
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail={
-                "errors": [{
-                    "message": "Toke名稱重複",
-                    "extensions": {
-                        "code": "TOKEN_EXIST",
+            content={
+                "errors": [
+                    {
+                        "messages": "Token 名稱重複",
+                        "extensions": {
+                            "code": "TOKEN_EXIST"
+                        }
                     }
-                }]
+                ]
             }
         )
 
@@ -378,15 +382,17 @@ async def add_token(request: Request, token_data: dict):
     try:
         db.add_token(token, use_times, center_id)
     except ValueError as e:
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail={
-                "errors": [{
-                    "message": str(e),
-                    "extensions": {
-                        "code": "TOKEN_EXIST",
+            content={
+                "errors": [
+                    {
+                        "message": str(e),
+                        "extensions": {
+                            "code": "TOKEN_EXIST"
+                        }
                     }
-                }]
+                ]
             }
         )
 
@@ -405,6 +411,7 @@ async def read_root():
     """返回HTML首页"""
     file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
     return FileResponse(file_path)
+
 
 # 原来的健康检查接口改为新的路径
 @app.get("/")
