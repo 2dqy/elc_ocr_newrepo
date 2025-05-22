@@ -4,17 +4,19 @@ import time
 import uuid
 import io
 import base64
-
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
 from PIL import Image, ImageEnhance
+from pathlib import Path
+
 import dashscope
 import uvicorn
 
-from database import Database
+from app.models.database import Database
 
 # 加载.env环境变量
 load_dotenv()
@@ -32,7 +34,7 @@ app.add_middleware(
 )
 
 # 挂载静态文件目录
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # 获取API密钥和配置参数
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
@@ -87,18 +89,6 @@ def update_token_usage(token: str):
         print(f"Token {token} 使用次数已更新")
     except Exception as e:
         print(f"更新Token使用次数错误: {str(e)}")
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-async def get_favicon():
-    """处理网站图标请求"""
-    # 检查是否存在favicon.ico文件
-    favicon_path = "static/images/favicon.ico"
-    if os.path.exists(favicon_path):
-        return FileResponse(favicon_path)
-    else:
-        # 如果没有图标，返回404
-        raise HTTPException(status_code=404, detail="Favicon not found")
 
 
 def process_image(image_data):
@@ -159,6 +149,14 @@ def process_image(image_data):
     return output_buffer.getvalue()
 
 
+def get_ip_prefix(ip: str) -> str:
+    """获取 IP 地址的前三位（a.b.c）"""
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return ""
+    return ".".join(parts[:3])
+
+
 @app.post("/upload/image")
 async def upload_image(
         file: UploadFile = File(...),
@@ -175,46 +173,46 @@ async def upload_image(
     """
     # 开始计时
     start_time = time.time()
-    
+
     # 检查token是否有效
     verify_token(token)
-    
+
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
     # 获取时间戳
     timestamp = int(time.time())
-    
+
     # 检查文件是否为图像
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="只能上传图像文件")
-    
+
     # 读取文件内容
     file_content = await file.read()
-    
+
     # 检查文件大小
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="文件大小超过500KB限制")
-    
+
     try:
         # 处理图像
         processed_image = process_image(file_content)
-        
+
         # 图像的base64编码（用于API调用）
         image_base64 = base64.b64encode(processed_image).decode("utf-8")
-        
+
         try:
             # 使用DashScope API进行OCR分析
             messages = [{
                 "role": "user",
                 "content": [{
                     "image": f"data:image/jpeg;base64,{image_base64}",
-                    "min_pixels": MIN_PIXELS, 
+                    "min_pixels": MIN_PIXELS,
                     "max_pixels": MAX_PIXELS,
                     "enable_rotate": True
                 },
-                {
-                    "type": "text", 
-                    "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
+                    {
+                        "type": "text",
+                        "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
 
                     1. 设备类型判断：
                        - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
@@ -252,16 +250,16 @@ async def upload_image(
                     4. 请根据数值给出专业的健康建议
                     5. 确保分析准确，不要捏造数据
                     """
-                }]
+                    }]
             }]
-            
+
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
                 messages=messages
             )
-            
+
             # 检查API响应状态
             if response.status_code == 200:
                 print(response.usage)
@@ -270,7 +268,7 @@ async def upload_image(
                 raw_result = response["output"]["choices"][0]["message"]["content"][0]["text"]
                 # 移除JSON格式标记和换行符，并转换为字典
                 ocr_result = raw_result.replace('\n', '').replace('    ', '').replace('```json', '').replace('```', '')
-                
+
                 # 构建完整响应
                 try:
                     # 将字符串转换为字典
@@ -279,7 +277,7 @@ async def upload_image(
                     # 替换日期为当前日期
                     if "data" in ocr_dict and ocr_dict["data"]:
                         ocr_dict["data"]["measure_date"] = current_date
-                    
+
                     # 根据category删除不需要的字段
                     if "data" in ocr_dict and ocr_dict["data"] and "category" in ocr_dict["data"]:
                         category = ocr_dict["data"]["category"]
@@ -291,7 +289,7 @@ async def upload_image(
                             # 血糖数据，删除blood_pressure字段
                             if "blood_pressure" in ocr_dict["data"]:
                                 del ocr_dict["data"]["blood_pressure"]
-                    
+
                     response_data = {
                         "status": ocr_dict["status"],
                         "message": ocr_dict["message"],
@@ -305,7 +303,7 @@ async def upload_image(
                         "source_ip": "127.0.0.1",
                         "timestamp": timestamp
                     }
-                    
+
                     # 如果OCR识别成功，更新token使用次数
                     if ocr_dict["status"] == "success":
                         update_token_usage(token)
@@ -339,7 +337,7 @@ async def upload_image(
                     "timestamp": timestamp
                 }
                 print(f"API错误: {response.code} - {response.message}")
-                
+
         except Exception as api_error:
             # 处理API调用错误
             response_data = {
@@ -356,14 +354,14 @@ async def upload_image(
                 "timestamp": timestamp
             }
             print(f"OCR API调用错误: {str(api_error)}")
-        
+
         # 计算执行时间
         execution_time = time.time() - start_time
         print(f"处理完成，执行时间: {execution_time:.2f}秒")
-        
+
         # 将执行时间添加到响应中
         response_data["execution_time"] = f"{execution_time:.2f}秒"
-        
+
         return JSONResponse(content=response_data)
 
     except Exception as e:
@@ -374,29 +372,40 @@ async def upload_image(
 
 @app.post("/upload/add_token")
 async def add_token(request: Request, token_data: dict):
-    # 查询数据库中的ip白名单，返回一个列表，从mysql中查询
+    # 查询数据库中的 IP 白名单
     db = Database()
     allowed_ips = db.get_allowed_ips()
-    ALLOWED_IPS = allowed_ips[0] if allowed_ips else []
-    print(ALLOWED_IPS)
-    # IP验证
-    if request.client:
-        client_ip = request.client.host
-    else:
-        client_ip = None
-        if client_ip not in ALLOWED_IPS:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "errors": [{
-                        "message": "IP 使用有限制",
-                        "extensions": {
-                            "code": "IP_DENY",
-                            "reason": "IP 使用有限制"
-                        }
-                    }]
-                }
-            )
+    ALLOWED_IPS = allowed_ips if allowed_ips else []
+    print("ALLOWED_IPS:", ALLOWED_IPS)
+
+    # 获取客户端 IP
+    client_ip = request.client.host if request.client else None
+    print("client_ip:", client_ip)
+
+    # IP 验证：检查前三位是否匹配
+    if not client_ip:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "errors": [{
+                    "message": "无法获取客户端 IP",
+                    "extensions": {"code": "IP_DENY", "reason": "无法获取客户端 IP"}
+                }]
+            }
+        )
+
+    client_prefix = get_ip_prefix(client_ip)
+    allowed_prefixes = [get_ip_prefix(ip) for ip in ALLOWED_IPS]
+    if client_prefix not in allowed_prefixes:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "errors": [{
+                    "message": "IP 使用有限制",
+                    "extensions": {"code": "IP_DENY", "reason": "IP 使用有限制"}
+                }]
+            }
+        )
 
     # 设置默认值
     token = token_data.get("token", '')
@@ -507,11 +516,12 @@ async def add_token(request: Request, token_data: dict):
     }
 
 
-
 @app.get("/")
 async def read_root():
     """返回HTML首页"""
-    return FileResponse("static/index.html")
+    file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
+    return FileResponse(file_path)
+
 
 # 原来的健康检查接口改为新的路径
 @app.get("/health")
@@ -521,12 +531,6 @@ async def health_check():
         "status": "server測試成功",
         "server_time": datetime.utcnow().isoformat()
     }
-
-
-if __name__ == "__main__":
-    # 启动FastAPI应用
-    uvicorn.run("app:app", host=HOST, port=PORT, reload=True)
-
 
 
 if __name__ == "__main__":
