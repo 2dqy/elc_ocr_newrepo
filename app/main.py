@@ -33,5 +33,5 @@ PORT = int(os.getenv("PORT"))
 
 if __name__ == "__main__":
     # 启动FastAPI应用
-    uvicorn.run("api.v1.app:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("version.v1.app:app", host=HOST, port=PORT, reload=True)
 
