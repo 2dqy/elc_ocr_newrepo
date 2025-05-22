@@ -1,8 +1,6 @@
 from datetime import datetime
 import os
 import time
-import uuid
-import io
 import base64
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -10,13 +8,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from PIL import Image, ImageEnhance
 from pathlib import Path
 
 import dashscope
 import uvicorn
+import random
+import string
 
 from app.models.database import Database
+from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
+from app.services.image_fun import process_image
 
 # 加载.env环境变量
 load_dotenv()
@@ -48,113 +49,6 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大�
 
 # 初始化数据库
 db = Database()
-
-
-# 验证token
-def verify_token(token: str = Form(...)):
-    """验证用户的token是否有效"""
-    try:
-        # 使用Database类连接MySQL
-        db = Database()
-
-        # 查询token是否存在及其使用次数
-        db.cursor.execute("SELECT use_times FROM tokens WHERE token=%s", (token,))
-        print("token:", token)
-        result = db.cursor.fetchone()
-        print("result:", result)
-
-        if not result:
-            raise HTTPException(status_code=401, detail="TOKEN_NOT_FOUND")
-
-        if result[0] <= 0:
-            raise HTTPException(status_code=403, detail="TOKEN_USED_UP")
-
-        return token
-    except Exception as e:
-        print(f"Token验证错误: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"TOKEN_VERIFY_ERROR: {str(e)}")
-
-
-# 更新token使用次数
-def update_token_usage(token: str):
-    """更新token的使用次数"""
-    try:
-        # 使用Database类连接MySQL
-        db = Database()
-
-        # 更新使用次数
-        db.cursor.execute("UPDATE tokens SET use_times = use_times - 1 WHERE token=%s", (token,))
-        db.conn.commit()
-
-        print(f"Token {token} 使用次数已更新")
-    except Exception as e:
-        print(f"更新Token使用次数错误: {str(e)}")
-
-
-def process_image(image_data):
-    """
-    处理图像 - 调整大小、对比度和亮度，使用PIL
-    
-    参数:
-        image_data: 图像二进制数据
-    返回:
-        处理后的图像数据
-    """
-    # 使用PIL打开图像
-    img = Image.open(io.BytesIO(image_data))
-
-    # 针对png的处理
-    # 若为带透明通道的图像（如PNG），先转换为RGB
-    if img.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
-        background.paste(img, mask=img.split()[-1])  # Alpha通道
-        img = background
-    elif img.mode != "RGB":
-        img = img.convert("RGB")
-
-    # 计算当前图像的像素总数
-    width, height = img.size
-    total_pixels = width * height
-
-    # 调整图像大小以符合像素要求
-    if total_pixels < MIN_PIXELS:
-        # 放大图像
-        scale_factor = (MIN_PIXELS / total_pixels) ** 0.5
-        new_width = int(width * scale_factor)
-        new_height = int(height * scale_factor)
-        img = img.resize((new_width, new_height), Image.BICUBIC)
-    elif total_pixels > MAX_PIXELS:
-        # 缩小图像
-        scale_factor = (MAX_PIXELS / total_pixels) ** 0.5
-        new_width = int(width * scale_factor)
-        new_height = int(height * scale_factor)
-        img = img.resize((new_width, new_height), Image.LANCZOS)
-
-    # 增强亮度 - 提高20%
-    enhancer = ImageEnhance.Brightness(img)
-    img = enhancer.enhance(1.2)
-
-    # 增强对比度 - 提高30%
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.3)
-
-    # 锐化图像 - 轻微锐化
-    enhancer = ImageEnhance.Sharpness(img)
-    img = enhancer.enhance(1.5)
-
-    # 保存为JPEG字节流
-    output_buffer = io.BytesIO()
-    img.save(output_buffer, format='JPEG', quality=95)
-
-    return output_buffer.getvalue()
-
-
-def get_ip_prefix(ip: str) -> str:
-    """获取 IP 地址的前三位（a.b.c）"""
-    parts = ip.split(".")
-    if len(parts) != 4:
-        return ""
-    return ".".join(parts[:3])
 
 
 @app.post("/upload/image")
@@ -195,7 +89,7 @@ async def upload_image(
 
     try:
         # 处理图像
-        processed_image = process_image(file_content)
+        processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
 
         # 图像的base64编码（用于API调用）
         image_base64 = base64.b64encode(processed_image).decode("utf-8")
@@ -291,7 +185,7 @@ async def upload_image(
                                 del ocr_dict["data"]["blood_pressure"]
 
                     response_data = {
-                        "status": ocr_dict["status"],
+                        "meta": ocr_dict["status"],
                         "message": ocr_dict["message"],
                         "data": ocr_dict["data"],
                         "file_info": {
@@ -309,7 +203,7 @@ async def upload_image(
                         update_token_usage(token)
                 except Exception as parse_error:
                     response_data = {
-                        "status": "error",
+                        "meta": "error",
                         "message": f"解析OCR结果失败: {str(parse_error)}",
                         "data": None,
                         "file_info": {
@@ -324,7 +218,7 @@ async def upload_image(
             else:
                 # 处理API错误
                 response_data = {
-                    "status": "error",
+                    "meta": "error",
                     "message": f"API调用失败: {response.code} - {response.message}",
                     "data": None,
                     "file_info": {
@@ -341,7 +235,7 @@ async def upload_image(
         except Exception as api_error:
             # 处理API调用错误
             response_data = {
-                "status": "error",
+                "meta": "error",
                 "message": f"OCR API调用错误: {str(api_error)}",
                 "data": None,
                 "file_info": {
@@ -372,6 +266,14 @@ async def upload_image(
 
 @app.post("/upload/add_token")
 async def add_token(request: Request, token_data: dict):
+    """        
+    - token: 可選，使用者自填token，如果為空則自動生成
+    - use_times: 可選，token可使用次數，如果為空則預設為10次
+    - center_id: 必填，中心ID
+
+ 返回:
+ 包含新建token資訊的字典
+    """
     # 查询数据库中的 IP 白名单
     db = Database()
     allowed_ips = db.get_allowed_ips()
@@ -382,14 +284,42 @@ async def add_token(request: Request, token_data: dict):
     client_ip = request.client.host if request.client else None
     print("client_ip:", client_ip)
 
+    # 验证center_id是否存在
+    if "center_id" not in token_data:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "errors": [{
+                    "message": "center_id为必填項",
+                    "extensions": {
+                        "code": "FORBIDDEN",
+                    }
+                }]
+            }
+        )
+
+    center_id = token_data["center_id"]
+    if not db.center_id_exists(center_id):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "errors": [{
+                    "message": "无效的center_id",
+                    "extensions": {
+                        "code": "FORBIDDEN",
+                    }
+                }]
+            }
+        )
+
     # IP 验证：检查前三位是否匹配
     if not client_ip:
         raise HTTPException(
             status_code=403,
             detail={
                 "errors": [{
-                    "message": "无法获取客户端 IP",
-                    "extensions": {"code": "IP_DENY", "reason": "无法获取客户端 IP"}
+                    "message": "無法獲取客戶端 IP",
+                    "extensions": {"code": "IP_DENY"}
                 }]
             }
         )
@@ -402,77 +332,33 @@ async def add_token(request: Request, token_data: dict):
             detail={
                 "errors": [{
                     "message": "IP 使用有限制",
-                    "extensions": {"code": "IP_DENY", "reason": "IP 使用有限制"}
+                    "extensions": {"code": "IP_DENY", "reason": "请联系info@2dqy.com或bob@2dqy.com"}
                 }]
             }
         )
 
-    # 设置默认值
+    # 获取并处理token参数
     token = token_data.get("token", '')
+
+    # 如果token为空或不存在，生成10位随机字母数字组合的token
+    if not token:
+        token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
     # 如果token包含非字母数字字符，返回HTTP错误400
-    if not token.isalnum():
+    elif not token.isalnum():
         raise HTTPException(
             status_code=400,
             detail={
                 "errors": [{
-                    "message": "Token 名稱不能为空且包含非字母数字字符",
+                    "message": "Token只能包含字母和數字",
                     "extensions": {
                         "code": "TOKEN_INVALID",
-                        "reason": "Token 名稱不能为空且包含非字母数字字符"
-                    }
-                }]
-            }
-        )
-    if not token or not token.isalnum():
-        token = str(uuid.uuid4().hex[:8])
-
-    db = Database()
-    # 检查token是否已存在
-
-    if db.token_exists(token):
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "errors": [{
-                    "message": "Token 名稱重複",
-                    "extensions": {
-                        "code": "TOKEN_EXIST",
-                        "reason": "Token 名稱重複"
                     }
                 }]
             }
         )
 
-    use_times = token_data.get("use_times", 90)
-    center_id = token_data["center_id"]
-    # 必填字段验证
-    if "center_id" not in token_data:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "errors": [{
-                    "message": "You don't have permission to \"create\" from collection \"tokenCreate\" or it does not exist.",
-                    "extensions": {
-                        "code": "FORBIDDEN",
-                        "reason": "center_id is required"
-                    }
-                }]
-            }
-        )
-
-    if not db.center_id_exists(center_id):
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "errors": [{
-                    "message": "Invalid center_id",
-                    "extensions": {
-                        "code": "FORBIDDEN",
-                        "reason": "center_id not found"
-                    }
-                }]
-            }
-        )
+    # 获取并处理use_times参数，默认值为10
+    use_times = token_data.get("use_times", 10)
 
     # 检查token是否已存在
     if db.token_exists(token):
@@ -480,10 +366,9 @@ async def add_token(request: Request, token_data: dict):
             status_code=400,
             detail={
                 "errors": [{
-                    "message": "Token 名稱重複",
+                    "message": "Toke名稱重複",
                     "extensions": {
                         "code": "TOKEN_EXIST",
-                        "reason": "Token 名稱重複"
                     }
                 }]
             }
@@ -500,31 +385,29 @@ async def add_token(request: Request, token_data: dict):
                     "message": str(e),
                     "extensions": {
                         "code": "TOKEN_EXIST",
-                        "reason": str(e)
                     }
                 }]
             }
         )
 
+    # 返回成功创建的token信息
     return {
         "data": {
             "id": db.cursor.lastrowid,
             "token": token,
             "use_times": use_times,
-            "center_id": center_id
         }
     }
 
 
-@app.get("/")
+@app.get("/html")
 async def read_root():
     """返回HTML首页"""
     file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
     return FileResponse(file_path)
 
-
 # 原来的健康检查接口改为新的路径
-@app.get("/health")
+@app.get("/")
 async def health_check():
     from datetime import datetime
     return {

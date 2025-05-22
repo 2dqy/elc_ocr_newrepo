@@ -3,7 +3,7 @@
  * 处理图像上传、预览、处理与分析结果显示
  */
 
-const API_BASE_URL = 'https://2dqy-ocr.vercel.app';
+const API_BASE_URL = 'http://localhost:8000';
 
 // DOM元素
 const dropZone = document.getElementById('dropZone');

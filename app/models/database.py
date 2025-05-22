@@ -23,7 +23,7 @@ class Database:
             )
             self.conn.commit()
             return self.cursor.lastrowid
-        except mysql.connector.IntegrityError:
+        except pymysql.IntegrityError:
             raise ValueError("Token already exists")
 
     def token_exists(self, token):
@@ -42,7 +42,7 @@ class Database:
             )
             self.conn.commit()
             return True
-        except mysql.connector.IntegrityError:
+        except pymysql.IntegrityError:
             return False
 
     def close(self):
