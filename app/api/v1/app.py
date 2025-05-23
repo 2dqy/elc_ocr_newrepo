@@ -20,8 +20,8 @@ from app.services.token_fun import verify_token, update_token_usage, get_ip_pref
 from app.services.image_fun import process_image
 
 from fastapi import APIRouter
-router = APIRouter(prefix="/upload")
 
+router = APIRouter(prefix="/upload")
 
 # 加载.env环境变量
 load_dotenv()
@@ -55,8 +55,6 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大�
 db = Database()
 
 
-
-
 @router.post("/image")
 async def upload_image(
         request: Request,
@@ -82,10 +80,10 @@ async def upload_image(
     current_date = datetime.now().strftime("%Y-%m-%d")
     # 获取时间戳
     timestamp = int(time.time())
-    
+
     # 获取客户端IP地址
     client_ip = request.client.host if request.client else "unknown"
-    
+
     # 生成文件上传ID
     file_upload_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
@@ -211,25 +209,25 @@ async def upload_image(
                     import json
                     ocr_dict = json.loads(ocr_result)
                     # print(f"xxx\n{ocr_result}\n")
-                    
+
                     # 确保data字段存在
                     if "data" not in ocr_dict:
                         ocr_dict = {"data": ocr_dict}
-                    
+
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
                         # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
-                        
+
                         # 添加后端参数
                         ocr_dict["data"]["source_ip"] = client_ip
-                        
+
                         # 计算AI使用情况
                         usage_info = response.usage
                         total_tokens = usage_info.get("total_tokens", 0)
                         ai_usage_value = total_tokens * 10
                         ocr_dict["data"]["ai_usage"] = ai_usage_value
-                        
+
                         # 添加文件相关信息
                         ocr_dict["data"]["file_upload_id"] = file_upload_id
                         ocr_dict["data"]["file_name"] = file.filename
@@ -247,7 +245,50 @@ async def upload_image(
                             # 血糖数据，删除blood_pressure字段
                             if "blood_pressure" in ocr_dict["data"]:
                                 del ocr_dict["data"]["blood_pressure"]
-                    
+
+                    # 补充单位并统一
+                    if "data" in ocr_dict and ocr_dict["data"]:
+                        # 处理血压单位
+                        if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
+                            bp_data = ocr_dict["data"]["blood_pressure"]
+                            # 为血压值添加mmHg单位
+                            if bp_data.get("sys") and bp_data["sys"] != "null":
+                                if not bp_data["sys"].endswith("mmHg"):
+                                    bp_data["sys"] = f"{bp_data['sys']}mmHg"
+                            if bp_data.get("dia") and bp_data["dia"] != "null":
+                                if not bp_data["dia"].endswith("mmHg"):
+                                    bp_data["dia"] = f"{bp_data['dia']}mmHg"
+                            if bp_data.get("pul") and bp_data["pul"] != "null":
+                                if not bp_data["pul"].endswith("bpm"):
+                                    bp_data["pul"] = f"{bp_data['pul']}bpm"
+
+                        # 处理血糖单位和转换
+                        if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
+                            bs_data = ocr_dict["data"]["blood_sugar"]
+                            if bs_data.get("value") and bs_data["value"] != "null":
+                                try:
+                                    # 提取数值部分（去除可能的单位）
+                                    value_str = bs_data["value"]
+                                    # 移除已有的单位标识
+                                    for unit in ["mmol/L", "mmol", "mg/dL", "mg"]:
+                                        value_str = value_str.replace(unit, "").strip()
+
+                                    blood_sugar_value = float(value_str)
+
+                                    # 如果血糖值大于20，认为是mg/dL单位，需要转换为mmol/L
+                                    if blood_sugar_value > 20:
+                                        blood_sugar_value = blood_sugar_value / 18
+                                        print(f"血糖单位转换: {bs_data['value']} -> {blood_sugar_value:.1f}mmol/L")
+
+                                    # 添加mmol/L单位
+                                    bs_data["value"] = f"{blood_sugar_value:.1f}mmol/L"
+
+                                except (ValueError, TypeError) as e:
+                                    print(f"血糖值转换错误: {bs_data['value']} - {str(e)}")
+                                    # 如果转换失败，直接添加单位
+                                    if not bs_data["value"].endswith("mmol/L"):
+                                        bs_data["value"] = f"{bs_data['value']}mmol/L"
+
                     # 打印最终处理结果
                     print("=== 最终处理结果 ===")
                     print(json.dumps(ocr_dict, ensure_ascii=False, indent=2))

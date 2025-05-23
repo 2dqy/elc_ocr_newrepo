@@ -10,17 +10,13 @@ project_root/
 ├── app/
 │   ├── api/             # API路由
 │   │   └── v1/
-│   │       └── endpoints/
-│   │           └── token.py
+│   │       └── app.py
 │   ├── core/           # 核心配置
 │   │   └── config.py
 │   ├── db/             # 数据库
 │   │   └── database.py
 │   ├── models/         # 数据库模型
-│   ├── schemas/        # Pydantic模型
-│   │   └── token.py
 │   ├── services/       # 业务逻辑
-│   │   └── token_service.py
 │   ├── static/         # 静态文件
 │   └── main.py         # 应用入口
 │
@@ -58,7 +54,8 @@ cp .env.example .env
 
 启动开发服务器：
 ```bash
-python -m app.main
+source .venv/bin/activate
+uvicorn app.main:app --reload 
 ```
 
 服务器将在 http://localhost:8000 运行
@@ -82,8 +79,7 @@ python -m app.main
 ## 开发指南
 
 1. 添加新的API端点：
-   - 在 `app/api/v1/endpoints/` 创建新的路由文件
-   - 在 `app/schemas/` 添加相应的Pydantic模型
+   - 在 `app/api/v1/app.py` 创建新的路由文件
    - 在 `app/services/` 实现业务逻辑
    - 在 `app/main.py` 注册新的路由
 
