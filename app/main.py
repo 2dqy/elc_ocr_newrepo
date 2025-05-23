@@ -28,11 +28,19 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # 注册接口
 app.include_router(v1_router)
 
+@app.get("/")
+async def health_check():
+    from datetime import datetime
+    return {
+        "status": "server測試成功",
+        "server_time": datetime.utcnow().isoformat()
+    }
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "app.api.v1.app:app",
+        "app.main:app",  # 修改为正确的应用路径
+        host="127.0.0.1",
         port=settings.PORT,
         reload=True
     )

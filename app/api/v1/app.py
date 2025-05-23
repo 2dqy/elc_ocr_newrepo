@@ -3,22 +3,16 @@ import os
 import time
 import base64
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-
 from pathlib import Path
-
 import dashscope
-import uvicorn
 import random
 import string
 
 from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
 from app.services.image_fun import process_image
-
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/upload")
@@ -26,25 +20,8 @@ router = APIRouter(prefix="/upload")
 # 加载.env环境变量
 load_dotenv()
 
-# 创建FastAPI应用程序
-app = FastAPI(title="医疗图像分析API", description="识别图像中的血压、血糖等信息")
-
-# 配置CORS（跨源资源共享）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源
-    allow_credentials=True,
-    allow_methods=["*"],  # 允许所有方法
-    allow_headers=["*"],  # 允许所有头
-)
-
-# 挂载静态文件目录
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 # 获取API密钥和配置参数
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
-HOST = os.getenv("HOST")
-PORT = int(os.getenv("PORT"))
 
 # 图像处理参数
 MIN_PIXELS = int(os.getenv("MIN_PIXELS", 28 * 28 * 4))  # 最小像素阈值
@@ -159,15 +136,14 @@ async def upload_image(
                                 "dia": "舒张压值",
                                 "pul": "心率值"
                             },
-                            "blood_sugar": {
-                                "value": "血糖值"                           
-                            },
+                            "blood_sugar": "血糖值",
+                            "other_value": "其他数据",
                             "suggest": "基于数据的 AI 健康建议",
                             "analyze_reliability": 0.95,
                             "status": "分析状态（例如 'completed', 'failed'）",
                             }
                     注意事项：
-                        1. 如果是血压数据，blood_sugar对象的所有字段设为null
+                        1. 如果是血压数据，blood_sugar字段设为null
                         2. 如果是血糖数据，blood_pressure对象的所有字段设为null
                         3. 时间必须从图片中提取，如果无法提取则返回null
                         4. 请根据数值给出专业的健康建议
@@ -287,30 +263,38 @@ async def upload_image(
 
                         # 处理血糖单位和转换
                         if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
-                            bs_data = ocr_dict["data"]["blood_sugar"]
-                            if bs_data.get("value") and bs_data["value"] != "null":
+                            bs_value = ocr_dict["data"]["blood_sugar"]
+                            if bs_value and bs_value != "null":
                                 try:
                                     # 提取数值部分（去除可能的单位）
-                                    value_str = bs_data["value"]
-                                    # 移除已有的单位标识
-                                    for unit in ["mmol/L", "mmol", "mg/dL", "mg"]:
-                                        value_str = value_str.replace(unit, "").strip()
+                                    value_str = str(bs_value).strip()
+                                    print(f"原始血糖值: '{value_str}'")
+                                    
+                                    # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
+                                    units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg"]
+                                    for unit in units_to_remove:
+                                        if unit.lower() in value_str.lower():
+                                            # 不区分大小写移除单位
+                                            import re
+                                            value_str = re.sub(re.escape(unit), '', value_str, flags=re.IGNORECASE).strip()
+                                            print(f"移除单位 '{unit}' 后: '{value_str}'")
 
                                     blood_sugar_value = float(value_str)
+                                    print(f"提取的数值: {blood_sugar_value}")
 
                                     # 如果血糖值大于20，认为是mg/dL单位，需要转换为mmol/L
                                     if blood_sugar_value > 20:
                                         blood_sugar_value = blood_sugar_value / 18
-                                        print(f"血糖单位转换: {bs_data['value']} -> {blood_sugar_value:.1f}mmol/L")
+                                        print(f"血糖单位转换: {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
                                     # 添加mmol/L单位
-                                    bs_data["value"] = f"{blood_sugar_value:.1f}mmol/L"
+                                    ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
 
                                 except (ValueError, TypeError) as e:
-                                    print(f"血糖值转换错误: {bs_data['value']} - {str(e)}")
+                                    print(f"血糖值转换错误: {bs_value} - {str(e)}")
                                     # 如果转换失败，直接添加单位
-                                    if not bs_data["value"].endswith("mmol/L"):
-                                        bs_data["value"] = f"{bs_data['value']}mmol/L"
+                                    if not str(bs_value).endswith("mmol/L"):
+                                        ocr_dict["data"]["blood_sugar"] = f"{bs_value}mmol/L"
 
                     # 打印最终处理结果
                     print("=== 最终处理结果 ===")
@@ -522,7 +506,7 @@ async def add_token(request: Request, token_data: dict):
     }
 
 
-@router.post("/html")
+@router.get("/html")
 async def read_root():
     """返回HTML首页"""
     file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
@@ -530,15 +514,4 @@ async def read_root():
 
 
 # 原来的健康检查接口改为新的路径
-@router.post("/")
-async def health_check():
-    from datetime import datetime
-    return {
-        "status": "server測試成功",
-        "server_time": datetime.utcnow().isoformat()
-    }
 
-
-if __name__ == "__main__":
-    # 启动FastAPI应用
-    uvicorn.run("app:app", host=HOST, port=PORT, reload=True)
