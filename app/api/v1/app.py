@@ -156,7 +156,8 @@ async def upload_image(
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
-                messages=messages
+                messages=messages,
+                temperature=0.2,
             )
 
             # 检查API响应状态
@@ -193,14 +194,35 @@ async def upload_image(
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
 
-                        # 判断血压是否有null值
+                        # 判断血压是否有null值或0开头的值
                         if "category" in ocr_dict["data"] and ocr_dict["data"]["category"] == "blood_pressure":
                             if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
                                 bp_data = ocr_dict["data"]["blood_pressure"]
-                                # 检查血压三个参数是否有null值
-                                if (not bp_data.get("sys") or bp_data.get("sys") == "null" or 
-                                    not bp_data.get("dia") or bp_data.get("dia") == "null" or 
-                                    not bp_data.get("pul") or bp_data.get("pul") == "null"):
+                                
+                                def is_invalid_value(value):
+                                    """检查值是否无效（null、空、或以0开头）"""
+                                    if not value or value == "null":
+                                        return True
+                                    # 提取数字部分检查是否以0开头
+                                    import re
+                                    # 提取开头的数字部分
+                                    match = re.match(r'^(\d+)', str(value).strip())
+                                    if match:
+                                        number_part = match.group(1)
+                                        # 检查是否以0开头且不是单独的0（像00、01、02等都是无效的）
+                                        if number_part.startswith('0') and len(number_part) > 1:
+                                            return True
+                                        # 检查是否就是0
+                                        if number_part == '0':
+                                            return True
+                                    return False
+                                
+                                # 检查血压三个参数是否有无效值
+                                if (is_invalid_value(bp_data.get("sys")) or 
+                                    is_invalid_value(bp_data.get("dia")) or 
+                                    is_invalid_value(bp_data.get("pul"))):
+                                    
+                                    print(f"血压数据无效: sys={bp_data.get('sys')}, dia={bp_data.get('dia')}, pul={bp_data.get('pul')}")
                                     
                                     response_data = {
                                         "errors": [
