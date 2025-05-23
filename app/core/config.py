@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     PORT: int = int(os.getenv("PORT"))
     
     # 图像处理配置
-    MIN_PIXELS: int = int(os.getenv("MIN_PIXELS", 28 * 28 * 4))
-    MAX_PIXELS: int = int(os.getenv("MAX_PIXELS", 28 * 28 * 8192))
-    MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))
+    MIN_PIXELS: int = int(os.getenv("MIN_PIXELS"))
+    MAX_PIXELS: int = int(os.getenv("MAX_PIXELS"))
+    MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE"))
     
     class Config:
         case_sensitive = True

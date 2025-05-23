@@ -19,6 +19,10 @@ from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
 from app.services.image_fun import process_image
 
+from fastapi import APIRouter
+router = APIRouter(prefix="/upload")
+
+
 # 加载.env环境变量
 load_dotenv()
 
@@ -51,8 +55,11 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大�
 db = Database()
 
 
-@app.post("/upload/image")
+
+
+@router.post("/image")
 async def upload_image(
+        request: Request,
         file: UploadFile = File(...),
         token: str = Form(...)
 ):
@@ -75,18 +82,44 @@ async def upload_image(
     current_date = datetime.now().strftime("%Y-%m-%d")
     # 获取时间戳
     timestamp = int(time.time())
+    
+    # 获取客户端IP地址
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # 生成文件上传ID
+    file_upload_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
     # 检查文件是否为图像
     if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="只能上传图像文件")
-
+        return JSONResponse(
+            status_code=400,
+            content={
+                "errors": [
+                    {
+                        "messages": "唯有上载图像文件",
+                        "extensions": {
+                            "code": "UPLOAD_FILE_FAIL"}
+                    }
+                ]
+            }
+        )
     # 读取文件内容
     file_content = await file.read()
 
     # 检查文件大小
     if len(file_content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="文件大小超过500KB限制")
-
+        return JSONResponse(
+            status_code=400,
+            content={
+                "errors": [
+                    {
+                        "messages": "文件大小超过500KB制",
+                        "extensions": {
+                            "code": "UPLOAD_FILE_FAIL"}
+                    }
+                ]
+            }
+        )
     try:
         # 处理图像
         processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
@@ -114,35 +147,26 @@ async def upload_image(
                     
                     2. 关注信息：
                        - 医疗设备品牌和型号
-                       - 测量时间（从图片中提取，格式.py：HH:mm）
+                       - 测量时间（从图片中提取，格式 HH:mm:ss，如果无法提取则返回 null）
                        - 测量数值
                     
                     请按照以下JSON格式返回数据：
-                    {
-                        "status": "success/error",
-                        "message": "成功/错误信息",
-                        "data": {
-                            "brand": "设备品牌",
-                            "measure_date": "当前日期",
-                            "measure_time": "图片中的测量时间",
-                            "category": "blood_pressure/blood_sugar",
+                    "data": {
+                            "brand": "设备品牌（例如 'Omron'）",
+                            "measure_time": "图片中的测量时间（格式 HH:mm:ss，例如 '14:30:00'，或 null）",
+                            "category": "blood_pressure 或 blood_sugar",
                             "blood_pressure": {
-                                "sys": "收缩压值",
-                                "dia": "舒张压值",
-                                "pul": "心率值"
+                                "sys": "收缩压值（字符串，例如 '120'，或 null）",
+                                "dia": "舒张压值（字符串，例如 '80'，或 null）",
+                                "pul": "心率值（字符串，例如 '70'，或 null）"
                             },
                             "blood_sugar": {
-                                "value": "血糖值"                            },
-                            "suggest": "基于数据的AI健康建议"
-                        }
-                    }
-                    
-                    注意事项：
-                    1. 如果是血压数据，blood_sugar对象的所有字段设为null
-                    2. 如果是血糖数据，blood_pressure对象的所有字段设为null
-                    3. 时间必须从图片中提取，如果无法提取则返回null
-                    4. 请根据数值给出专业的健康建议
-                    5. 确保分析准确，不要捏造数据
+                                "value": "血糖值（字符串，例如 '5.5'，或 null）"
+                            },
+                            "suggest": "基于数据的 AI 健康建议",
+                            "analyze_reliability": 0.95,
+                            "status": "分析状态（例如 'completed', 'failed'）",
+                            }
                     """
                     }]
             }]
@@ -157,20 +181,53 @@ async def upload_image(
             # 检查API响应状态
             if response.status_code == 200:
                 print(response.usage)
+                print(response.output.choices[0].message.content)
 
                 # 获取OCR结果并处理格式
-                raw_result = response["output"]["choices"][0]["message"]["content"][0]["text"]
-                # 移除JSON格式标记和换行符，并转换为字典
-                ocr_result = raw_result.replace('\n', '').replace('    ', '').replace('```json', '').replace('```', '')
+                raw_result = response["output"]["choices"][0]["message"]["content"]
+                print(raw_result)
+
+                # 处理新的返回格式：列表中包含字典，字典有'text'键
+                if isinstance(raw_result, list) and len(raw_result) > 0 and 'text' in raw_result[0]:
+                    # 提取text内容
+                    text_content = raw_result[0]['text']
+                else:
+                    # 兼容旧格式，直接使用raw_result
+                    text_content = raw_result
+
+                # 移除代码块标记（如 ```json 和 ```）和多余的换行、缩进
+                ocr_result = text_content.replace('```json', '').replace('```', '').strip()
 
                 # 构建完整响应
                 try:
                     # 将字符串转换为字典
                     import json
                     ocr_dict = json.loads(ocr_result)
-                    # 替换日期为当前日期
-                    if "data" in ocr_dict and ocr_dict["data"]:
+                    print(f"xxx\n{ocr_result}\n")
+                    
+                    # 确保data字段存在
+                    if "data" not in ocr_dict:
+                        ocr_dict = {"data": ocr_dict}
+                    
+                    # 添加后端获取的参数到data中
+                    if ocr_dict["data"]:
+                        # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
+                        
+                        # 添加后端参数
+                        ocr_dict["data"]["source_ip"] = client_ip
+                        
+                        # 计算AI使用情况
+                        usage_info = response.usage
+                        total_tokens = usage_info.get("total_tokens", 0)
+                        ai_usage_value = total_tokens * 10
+                        ocr_dict["data"]["ai_usage"] = ai_usage_value
+                        
+                        # 添加文件相关信息
+                        ocr_dict["data"]["file_upload_id"] = file_upload_id
+                        ocr_dict["data"]["file_name"] = file.filename
+                        ocr_dict["data"]["file_size"] = len(file_content)
+                        ocr_dict["data"]["token"] = token
 
                     # 根据category删除不需要的字段
                     if "data" in ocr_dict and ocr_dict["data"] and "category" in ocr_dict["data"]:
@@ -183,23 +240,20 @@ async def upload_image(
                             # 血糖数据，删除blood_pressure字段
                             if "blood_pressure" in ocr_dict["data"]:
                                 del ocr_dict["data"]["blood_pressure"]
+                    
+                    # 打印最终处理结果
+                    print("=== 最终处理结果 ===")
+                    print(json.dumps(ocr_dict, ensure_ascii=False, indent=2))
+                    print("==================")
 
                     response_data = {
-                        "meta": ocr_dict["status"],
-                        "message": ocr_dict["message"],
+                        "meta": ocr_dict.get("status", "success"),
                         "data": ocr_dict["data"],
-                        "file_info": {
-                            "filename": file.filename,
-                            "content_type": file.content_type,
-                            "size": len(file_content),
-                            "processed_size": len(processed_image)
-                        },
-                        "source_ip": "127.0.0.1",
-                        "timestamp": timestamp
+
                     }
 
                     # 如果OCR识别成功，更新token使用次数
-                    if ocr_dict["status"] == "success":
+                    if ocr_dict.get("status") == "success" or ocr_dict["data"].get("status") == "completed":
                         update_token_usage(token)
                 except Exception as parse_error:
                     response_data = {
@@ -212,8 +266,9 @@ async def upload_image(
                             "size": len(file_content),
                             "processed_size": len(processed_image)
                         },
-                        "source_ip": "127.0.0.1",
-                        "timestamp": timestamp
+                        "source_ip": client_ip,
+                        "timestamp": timestamp,
+                        "file_upload_id": file_upload_id
                     }
             else:
                 # 处理API错误
@@ -227,8 +282,9 @@ async def upload_image(
                         "size": len(file_content),
                         "processed_size": len(processed_image)
                     },
-                    "source_ip": "127.0.0.1",
-                    "timestamp": timestamp
+                    "source_ip": client_ip,
+                    "timestamp": timestamp,
+                    "file_upload_id": file_upload_id
                 }
                 print(f"API错误: {response.code} - {response.message}")
 
@@ -244,8 +300,9 @@ async def upload_image(
                     "size": len(file_content),
                     "processed_size": len(processed_image)
                 },
-                "source_ip": "127.0.0.1",
-                "timestamp": timestamp
+                "source_ip": client_ip,
+                "timestamp": timestamp,
+                "file_upload_id": file_upload_id
             }
             print(f"OCR API调用错误: {str(api_error)}")
 
@@ -254,7 +311,7 @@ async def upload_image(
         print(f"处理完成，执行时间: {execution_time:.2f}秒")
 
         # 将执行时间添加到响应中
-        response_data["execution_time"] = f"{execution_time:.2f}秒"
+        # response_data["execution_time"] = f"{execution_time:.2f}秒"
 
         return JSONResponse(content=response_data)
 
@@ -264,7 +321,7 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=f"UPLOAD_FILE_FAIL: {str(e)}")
 
 
-@app.post("/upload/add_token")
+@router.post("/add_token")
 async def add_token(request: Request, token_data: dict):
     """        
     - token: 可選，使用者自填token，如果為空則自動生成
@@ -406,7 +463,7 @@ async def add_token(request: Request, token_data: dict):
     }
 
 
-@app.get("/html")
+@router.post("/html")
 async def read_root():
     """返回HTML首页"""
     file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
@@ -414,7 +471,7 @@ async def read_root():
 
 
 # 原来的健康检查接口改为新的路径
-@app.get("/")
+@router.post("/")
 async def health_check():
     from datetime import datetime
     return {
