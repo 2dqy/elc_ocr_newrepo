@@ -216,6 +216,29 @@ async def upload_image(
 
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
+
+                        # 判断血压是否有null值
+                        if "category" in ocr_dict["data"] and ocr_dict["data"]["category"] == "blood_pressure":
+                            if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
+                                bp_data = ocr_dict["data"]["blood_pressure"]
+                                # 检查血压三个参数是否有null值
+                                if (not bp_data.get("sys") or bp_data.get("sys") == "null" or 
+                                    not bp_data.get("dia") or bp_data.get("dia") == "null" or 
+                                    not bp_data.get("pul") or bp_data.get("pul") == "null"):
+                                    
+                                    response_data = {
+                                        "errors": [
+                                            {
+                                                "message": f"图像有错误或不清晰",
+                                                "extensions": {
+                                                    "code": "IMG__ERROR"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                    return JSONResponse(content=response_data)
+
+                        
                         # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
 
