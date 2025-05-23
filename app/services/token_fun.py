@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Form
 from app.models.database import Database
+from fastapi.responses import FileResponse, JSONResponse
 
 
 # 验证token
@@ -17,24 +18,44 @@ def verify_token(token: str = Form(...)):
         print("result:", result)
 
         if not result:
-            raise HTTPException(status_code=401, detail="TOKEN_NOT_FOUND")
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "errors": [{
+                        "message": "TOKEN_NOT_FOUND",
+                        "extensions": {
+                            "code": "FORBIDDEN",
+                        }
+                    }]
+                }
+            )
 
         if result[0] <= 0:
-            raise HTTPException(status_code=403, detail="TOKEN_USED_UP")
-
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "errors": [{
+                        "message": "TOKEN_USED_UP",
+                        "extensions": {
+                            "code": "FORBIDDEN",
+                        }
+                    }]
+                }
+            )
         return token
     except Exception as e:
         print(f"Token验证错误: {str(e)}")
-        raise HTTPException(status_code=500, detail={
-            "errors": [
-                {
-                    "messages": "Token不存在",
+        return JSONResponse(
+            status_code=500,
+            content={
+                "errors": [{
+                    "message": "Token次数已用完",
                     "extensions": {
-                        "code": "TOKEN_NOT_FOUND"
+                        "code": "FORBIDDEN",
                     }
-                }
-            ]
-        })
+                }]
+            }
+        )
 
 # 更新token使用次数
 def update_token_usage(token: str):
