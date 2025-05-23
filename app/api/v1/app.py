@@ -152,21 +152,28 @@ async def upload_image(
                     
                     请按照以下JSON格式返回数据：
                     "data": {
-                            "brand": "设备品牌（例如 'Omron'）",
-                            "measure_time": "图片中的测量时间（格式 HH:mm:ss，例如 '14:30:00'，或 null）",
+                            "brand": "设备品牌",
+                            "measure_date": "当前日期",
+                            "measure_time": "图片中的测量时间",
                             "category": "blood_pressure 或 blood_sugar",
                             "blood_pressure": {
-                                "sys": "收缩压值（字符串，例如 '120'，或 null）",
-                                "dia": "舒张压值（字符串，例如 '80'，或 null）",
-                                "pul": "心率值（字符串，例如 '70'，或 null）"
+                                "sys": "收缩压值",
+                                "dia": "舒张压值",
+                                "pul": "心率值"
                             },
                             "blood_sugar": {
-                                "value": "血糖值（字符串，例如 '5.5'，或 null）"
+                                "value": "血糖值"                           
                             },
                             "suggest": "基于数据的 AI 健康建议",
                             "analyze_reliability": 0.95,
                             "status": "分析状态（例如 'completed', 'failed'）",
                             }
+                    注意事项：
+                        1. 如果是血压数据，blood_sugar对象的所有字段设为null
+                        2. 如果是血糖数据，blood_pressure对象的所有字段设为null
+                        3. 时间必须从图片中提取，如果无法提取则返回null
+                        4. 请根据数值给出专业的健康建议
+                        5. 确保分析准确，不要捏造数据
                     """
                     }]
             }]
@@ -181,11 +188,11 @@ async def upload_image(
             # 检查API响应状态
             if response.status_code == 200:
                 print(response.usage)
-                print(response.output.choices[0].message.content)
+                # print(response.output.choices[0].message.content)
 
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"]
-                print(raw_result)
+                # print(raw_result)
 
                 # 处理新的返回格式：列表中包含字典，字典有'text'键
                 if isinstance(raw_result, list) and len(raw_result) > 0 and 'text' in raw_result[0]:
@@ -203,7 +210,7 @@ async def upload_image(
                     # 将字符串转换为字典
                     import json
                     ocr_dict = json.loads(ocr_result)
-                    print(f"xxx\n{ocr_result}\n")
+                    # print(f"xxx\n{ocr_result}\n")
                     
                     # 确保data字段存在
                     if "data" not in ocr_dict:
@@ -256,55 +263,43 @@ async def upload_image(
                     if ocr_dict.get("status") == "success" or ocr_dict["data"].get("status") == "completed":
                         update_token_usage(token)
                 except Exception as parse_error:
+                    # 处理API错误
                     response_data = {
-                        "meta": "error",
-                        "message": f"解析OCR结果失败: {str(parse_error)}",
-                        "data": None,
-                        "file_info": {
-                            "filename": file.filename,
-                            "content_type": file.content_type,
-                            "size": len(file_content),
-                            "processed_size": len(processed_image)
-                        },
-                        "source_ip": client_ip,
-                        "timestamp": timestamp,
-                        "file_upload_id": file_upload_id
+                        "errors": [
+                            {
+                                "message": f"OCR解析失败",
+                                "extensions": {
+                                    "code": "OCR__ERROR"
+                                }
+                            }
+                        ]
                     }
             else:
                 # 处理API错误
                 response_data = {
-                    "meta": "error",
-                    "message": f"API调用失败: {response.code} - {response.message}",
-                    "data": None,
-                    "file_info": {
-                        "filename": file.filename,
-                        "content_type": file.content_type,
-                        "size": len(file_content),
-                        "processed_size": len(processed_image)
-                    },
-                    "source_ip": client_ip,
-                    "timestamp": timestamp,
-                    "file_upload_id": file_upload_id
+                    "errors": [
+                        {
+                            "message": f"OCR API调用错误",
+                            "extensions": {
+                                "code": "OCR_API_ERROR"
+                            }
+                        }
+                    ]
                 }
                 print(f"API错误: {response.code} - {response.message}")
 
         except Exception as api_error:
             # 处理API调用错误
             response_data = {
-                "meta": "error",
-                "message": f"OCR API调用错误: {str(api_error)}",
-                "data": None,
-                "file_info": {
-                    "filename": file.filename,
-                    "content_type": file.content_type,
-                    "size": len(file_content),
-                    "processed_size": len(processed_image)
-                },
-                "source_ip": client_ip,
-                "timestamp": timestamp,
-                "file_upload_id": file_upload_id
+                "errors": [
+                    {
+                        "message": f"OCR API调用错误: {str(api_error)}",
+                        "extensions": {
+                            "code": "OCR_API_ERROR"
+                        }
+                    }
+                ]
             }
-            print(f"OCR API调用错误: {str(api_error)}")
 
         # 计算执行时间
         execution_time = time.time() - start_time
