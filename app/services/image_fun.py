@@ -41,17 +41,17 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
         new_height = int(height * scale_factor)
         img = img.resize((new_width, new_height), Image.LANCZOS)
 
-    # 增强亮度 - 提高20%
-    enhancer = ImageEnhance.Brightness(img)
-    img = enhancer.enhance(1.2)
-
-    # 增强对比度 - 提高30%
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.3)
-
-    # 锐化图像 - 轻微锐化
-    enhancer = ImageEnhance.Sharpness(img)
-    img = enhancer.enhance(1.5)
+    # # 增强亮度 - 提高20%
+    # enhancer = ImageEnhance.Brightness(img)
+    # img = enhancer.enhance(1.2)
+    #
+    # # 增强对比度 - 提高30%
+    # enhancer = ImageEnhance.Contrast(img)
+    # img = enhancer.enhance(1.2)
+    #
+    # # 锐化图像 - 轻微锐化
+    # enhancer = ImageEnhance.Sharpness(img)
+    # img = enhancer.enhance(1.2)
 
     # 保存为JPEG字节流
     output_buffer = io.BytesIO()

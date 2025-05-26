@@ -3,7 +3,8 @@
  * 处理图像上传、预览、处理与分析结果显示
  */
 
-const API_BASE_URL = 'https://2dqy-ocr.vercel.app';
+// 全局配置变量
+let API_BASE_URL = '';
 
 // DOM元素
 const dropZone = document.getElementById('dropZone');
@@ -30,7 +31,38 @@ const newAnalysisBtn = document.getElementById('newAnalysisBtn');
 // 状态变量
 let selectedFile = null;
 
-// API配置
+/**
+ * 获取API配置
+ */
+async function loadConfig() {
+    try {
+        // 首先尝试从当前域名获取配置
+        const response = await fetch('/upload/config');
+        if (response.ok) {
+            const config = await response.json();
+            API_BASE_URL = config.api_base_url;
+            console.log('API配置加载成功:', API_BASE_URL);
+        } else {
+            console.error('API配置加载失败:', error);
+
+            // 如果获取失败，使用默认配置
+            // API_BASE_URL = window.location.origin;
+            // console.log('使用默认API配置:', API_BASE_URL);
+        }
+    } catch (error) {
+        console.error('API配置加载失败:', error);
+        // API_BASE_URL = window.location.origin;
+        // console.log('使用默认API配置:', API_BASE_URL);
+    }
+}
+
+/**
+ * 初始化应用
+ */
+async function initApp() {
+    await loadConfig();
+    initUploadArea();
+}
 
 /**
  * 初始化上传区域事件监听
@@ -268,7 +300,7 @@ function resetAnalysis() {
  * 页面加载完成后初始化
  */
 document.addEventListener('DOMContentLoaded', () => {
-    initUploadArea();
+    initApp();
 
     // 预先填充一个令牌便于测试
     tokenInput.value = 'bobtest';

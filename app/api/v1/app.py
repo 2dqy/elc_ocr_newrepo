@@ -13,6 +13,7 @@ import string
 from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
 from app.services.image_fun import process_image
+from app.core.config import settings
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/upload")
@@ -55,8 +56,7 @@ async def upload_image(
 
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
-    # 获取时间戳
-    timestamp = int(time.time())
+
 
     # 获取客户端IP地址
     client_ip = request.client.host if request.client else "unknown"
@@ -533,6 +533,14 @@ async def read_root():
     """返回HTML首页"""
     file_path = Path(__file__).resolve().parent.parent.parent / "static" / "index.html"
     return FileResponse(file_path)
+
+
+@router.get("/config")
+async def get_config():
+    """获取前端配置"""
+    return {
+        "api_base_url": settings.API_BASE_URL
+    }
 
 
 # 原来的健康检查接口改为新的路径
