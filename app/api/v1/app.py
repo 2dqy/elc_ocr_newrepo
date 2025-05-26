@@ -119,13 +119,20 @@ async def upload_image(
                 },
                     {
                         "type": "text",
-                        "text": """请仔细分析图像中的医疗数据，判断是血压计还是血糖仪的数据，并提取以下信息：
+                        "text": """请仔细分析上传的图像，执行以下步骤并返回结果：
 
-                    1. 设备类型判断：
+                    1. 图片相关性判断：
+                       - 首先判断图像是否包含血压计或血糖仪的显示屏或数据。
+                       - 如果图像不包含血压计或血糖仪相关内容（例如，风景照、人物照或其他无关图片），请按照以下JSON格式返回数据：
+                            "data": {
+                                    "category": "Not relevant"，
+                                    }后续提示词可忽略                                 
+
+                    2. 设备类型判断：
                        - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
                        - 血糖仪数据：血糖值
                     
-                    2. 关注信息：
+                    3. 关注信息：
                        - 医疗设备品牌和型号
                        - 测量时间（从图片中提取，格式 HH:mm:ss，如果无法提取则返回 null）
                        - 测量数值
@@ -153,6 +160,8 @@ async def upload_image(
                         3. 时间必须从图片中提取，如果无法提取则返回null
                         4. 请根据数值给出专业的健康建议
                         5. 确保分析准确，不要捏造数据
+                        6. 如果图片不包含血压计或血糖仪数据，设置category 为 "error"，其他值为空。
+
                     """
                     }]
             }]
@@ -197,6 +206,20 @@ async def upload_image(
                     # 确保data字段存在
                     if "data" not in ocr_dict:
                         ocr_dict = {"data": ocr_dict}
+
+                    # 检查category字段是否为"Not relevant"
+                    if ocr_dict["data"] and ocr_dict["data"].get("category") == "Not relevant":
+                        response_data = {
+                            "errors": [
+                                {
+                                    "message": f"图像不相关",
+                                    "extensions": {
+                                        "code": "IMG__ERROR"
+                                    }
+                                }
+                            ]
+                        }
+                        return JSONResponse(content=response_data)
 
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
