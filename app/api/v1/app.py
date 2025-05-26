@@ -76,7 +76,7 @@ async def upload_image(
             content={
                 "errors": [
                     {
-                        "messages": "唯有上载图像文件",
+                        "messages": "唯有上载圖像文件",
                         "extensions": {
                             "code": "UPLOAD_FILE_FAIL"}
                     }
@@ -179,7 +179,7 @@ async def upload_image(
                 # print(response.usage)
                 # print(response.output.choices[0].message.content)
                 # 输出日志
-                logging.info(f"响应内容: {response}")
+                logging.info(f"回應內容: {response}")
 
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"]
@@ -212,7 +212,7 @@ async def upload_image(
                         response_data = {
                             "errors": [
                                 {
-                                    "message": f"图像不相关",
+                                    "message": f"圖像不相關",
                                     "extensions": {
                                         "code": "IMG__ERROR"
                                     }
@@ -257,7 +257,7 @@ async def upload_image(
                                     response_data = {
                                         "errors": [
                                             {
-                                                "message": f"图像有错误或不清晰",
+                                                "message": f"圖像有錯誤或不清晰",
                                                 "extensions": {
                                                     "code": "IMG__ERROR"
                                                 }
@@ -367,7 +367,7 @@ async def upload_image(
                     response_data = {
                         "errors": [
                             {
-                                "message": f"OCR解析失败",
+                                "message": f"OCR解析失敗",
                                 "extensions": {
                                     "code": "OCR__ERROR"
                                 }
@@ -379,7 +379,7 @@ async def upload_image(
                 response_data = {
                     "errors": [
                         {
-                            "message": f"OCR API调用错误",
+                            "message": f"OCR API呼叫錯誤",
                             "extensions": {
                                 "code": "OCR_API_ERROR"
                             }
@@ -393,7 +393,7 @@ async def upload_image(
             response_data = {
                 "errors": [
                     {
-                        "message": f"OCR API调用错误: {str(api_error)}",
+                        "message": f"OCR API呼叫錯誤: {str(api_error)}",
                         "extensions": {
                             "code": "OCR_API_ERROR"
                         }
@@ -403,7 +403,7 @@ async def upload_image(
 
         # 计算执行时间
         execution_time = time.time() - start_time
-        print(f"处理完成，执行时间: {execution_time:.2f}秒")
+        print(f"處理完成，執行時間: {execution_time:.2f}秒")
 
         # 将执行时间添加到响应中
         # response_data["execution_time"] = f"{execution_time:.2f}秒"

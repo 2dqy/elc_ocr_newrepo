@@ -1,12 +1,16 @@
 /**
  * 医疗图像分析系统前端JavaScript
- * 处理图像上传、预览、处理与分析结果显示
+ * 处理图像上传、预览、处理与分析结果显示，以及Token管理
  */
 
 // 全局配置变量
 let API_BASE_URL = '';
 
-// DOM元素
+// DOM元素 - 通用
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+// DOM元素 - 图像分析
 const dropZone = document.getElementById('dropZone');
 const uploadContent = document.getElementById('uploadContent');
 const imagePreview = document.getElementById('imagePreview');
@@ -28,6 +32,23 @@ const confidenceValue = document.getElementById('confidenceValue');
 const rawData = document.getElementById('rawData');
 const newAnalysisBtn = document.getElementById('newAnalysisBtn');
 
+// DOM元素 - Token管理
+const centerIdInput = document.getElementById('centerIdInput');
+const customTokenInput = document.getElementById('customTokenInput');
+const useTimesInput = document.getElementById('useTimesInput');
+const createTokenBtn = document.getElementById('createTokenBtn');
+const tokenResultSection = document.getElementById('tokenResultSection');
+const tokenLoader = document.getElementById('tokenLoader');
+const tokenResultContent = document.getElementById('tokenResultContent');
+const tokenSuccess = document.getElementById('tokenSuccess');
+const tokenError = document.getElementById('tokenError');
+const tokenId = document.getElementById('tokenId');
+const tokenValue = document.getElementById('tokenValue');
+const tokenUseTimes = document.getElementById('tokenUseTimes');
+const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+const copyTokenBtn = document.getElementById('copyTokenBtn');
+const newTokenBtn = document.getElementById('newTokenBtn');
+
 // 状态变量
 let selectedFile = null;
 
@@ -41,18 +62,17 @@ async function loadConfig() {
         if (response.ok) {
             const config = await response.json();
             API_BASE_URL = config.api_base_url;
-            console.log('API配置加载成功:', API_BASE_URL);
+            console.log('API配置加載成功:', API_BASE_URL);
         } else {
-            console.error('API配置加载失败:', error);
-
             // 如果获取失败，使用默认配置
-            // API_BASE_URL = window.location.origin;
-            // console.log('使用默认API配置:', API_BASE_URL);
+            API_BASE_URL = window.location.origin;
+            console.log('使用默認API配置:', API_BASE_URL);
         }
     } catch (error) {
-        console.error('API配置加载失败:', error);
-        // API_BASE_URL = window.location.origin;
-        // console.log('使用默认API配置:', API_BASE_URL);
+        console.error('API配置加載失敗:', error);
+        // 如果获取失败，使用当前域名作为默认值
+        API_BASE_URL = window.location.origin;
+        console.log('使用默認API配置:', API_BASE_URL);
     }
 }
 
@@ -61,7 +81,333 @@ async function loadConfig() {
  */
 async function initApp() {
     await loadConfig();
+    initTabs();
     initUploadArea();
+    initTokenManagement();
+}
+
+/**
+ * 初始化選項卡功能
+ */
+function initTabs() {
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.getAttribute('data-tab');
+            switchTab(targetTab);
+        });
+    });
+}
+
+/**
+ * 切換選項卡
+ */
+function switchTab(targetTab) {
+    // 移除所有活動狀態
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    // 添加活動狀態到目標選項卡
+    document.querySelector(`[data-tab="${targetTab}"]`).classList.add('active');
+    document.getElementById(`${targetTab}Tab`).classList.add('active');
+    
+    // 重置相關狀態
+    if (targetTab === 'analysis') {
+        resetAnalysis();
+    } else if (targetTab === 'token') {
+        resetTokenForm();
+    }
+}
+
+/**
+ * 初始化Token管理功能
+ */
+function initTokenManagement() {
+    console.log('初始化Token管理功能...');
+    
+    // 等待一小段时间确保DOM完全加载
+    setTimeout(() => {
+        // 重新获取DOM元素
+        const createTokenBtn = document.getElementById('createTokenBtn');
+        const centerIdInput = document.getElementById('centerIdInput');
+        const customTokenInput = document.getElementById('customTokenInput');
+        const useTimesInput = document.getElementById('useTimesInput');
+        const copyTokenBtn = document.getElementById('copyTokenBtn');
+        const newTokenBtn = document.getElementById('newTokenBtn');
+        
+        console.log('重新檢查DOM元素:');
+        console.log('createTokenBtn:', createTokenBtn);
+        console.log('centerIdInput:', centerIdInput);
+        console.log('customTokenInput:', customTokenInput);
+        console.log('useTimesInput:', useTimesInput);
+        
+        // 检查DOM元素是否存在
+        if (!createTokenBtn) {
+            console.error('createTokenBtn 元素未找到');
+            return;
+        }
+        if (!centerIdInput) {
+            console.error('centerIdInput 元素未找到');
+            return;
+        }
+        
+        console.log('所有Token管理DOM元素已找到');
+        
+        // 創建Token按鈕事件
+        createTokenBtn.addEventListener('click', (e) => {
+            console.log('創建Token按鈕被點擊');
+            e.preventDefault();
+            e.stopPropagation();
+            createToken();
+        });
+        
+        // 複製Token按鈕事件
+        if (copyTokenBtn) {
+            copyTokenBtn.addEventListener('click', copyToken);
+        }
+        
+        // 新Token按鈕事件
+        if (newTokenBtn) {
+            newTokenBtn.addEventListener('click', resetTokenForm);
+        }
+        
+        // 輸入驗證
+        centerIdInput.addEventListener('input', () => {
+            console.log('centerIdInput 輸入變化:', centerIdInput.value);
+            validateTokenForm();
+        });
+        
+        if (customTokenInput) {
+            customTokenInput.addEventListener('input', () => {
+                console.log('customTokenInput 輸入變化:', customTokenInput.value);
+                validateTokenForm();
+            });
+        }
+        
+        if (useTimesInput) {
+            useTimesInput.addEventListener('input', () => {
+                console.log('useTimesInput 輸入變化:', useTimesInput.value);
+                validateTokenForm();
+            });
+        }
+        
+        // 初始验证
+        validateTokenForm();
+        
+        console.log('Token管理功能初始化完成');
+    }, 100);
+}
+
+/**
+ * 驗證Token表單
+ */
+function validateTokenForm() {
+    // 动态获取DOM元素
+    const centerIdInput = document.getElementById('centerIdInput');
+    const createTokenBtn = document.getElementById('createTokenBtn');
+    const customTokenInput = document.getElementById('customTokenInput');
+    const useTimesInput = document.getElementById('useTimesInput');
+    
+    if (!centerIdInput || !createTokenBtn) {
+        console.error('Token表單元素未找到');
+        return;
+    }
+    
+    const centerIdValid = centerIdInput.value.trim() !== '';
+    const customTokenValid = !customTokenInput || customTokenInput.value === '' || /^[a-zA-Z0-9]+$/.test(customTokenInput.value);
+    const useTimesValid = !useTimesInput || (useTimesInput.value >= 1 && useTimesInput.value <= 1000);
+    
+    createTokenBtn.disabled = !(centerIdValid && customTokenValid && useTimesValid);
+    
+    console.log('表單驗證:', { centerIdValid, customTokenValid, useTimesValid, disabled: createTokenBtn.disabled });
+    
+    // 顯示自定義Token驗證錯誤
+    if (customTokenInput && customTokenInput.value && !customTokenValid) {
+        customTokenInput.style.borderColor = 'var(--error-color)';
+    } else if (customTokenInput) {
+        customTokenInput.style.borderColor = '';
+    }
+}
+
+/**
+ * 創建Token
+ */
+async function createToken() {
+    console.log('開始創建Token...');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    
+    // 动态获取DOM元素
+    const centerIdInput = document.getElementById('centerIdInput');
+    const customTokenInput = document.getElementById('customTokenInput');
+    const useTimesInput = document.getElementById('useTimesInput');
+    const tokenResultSection = document.getElementById('tokenResultSection');
+    const tokenLoader = document.getElementById('tokenLoader');
+    const tokenResultContent = document.getElementById('tokenResultContent');
+    
+    if (!centerIdInput || !centerIdInput.value.trim()) {
+        showError('請輸入中心ID');
+        return;
+    }
+    
+    if (!API_BASE_URL) {
+        showError('API配置未加載，請刷新頁面重試');
+        return;
+    }
+    
+    // 顯示載入狀態
+    if (tokenResultSection) {
+        tokenResultSection.style.display = 'block';
+    }
+    if (tokenLoader) {
+        tokenLoader.style.display = 'flex';
+    }
+    if (tokenResultContent) {
+        tokenResultContent.style.display = 'none';
+    }
+    
+    // 滾動到結果區域
+    if (tokenResultSection) {
+        tokenResultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // 準備請求數據
+    const tokenData = {
+        center_id: centerIdInput.value.trim(),
+        use_times: useTimesInput ? (parseInt(useTimesInput.value) || 10) : 10
+    };
+    
+    if (customTokenInput && customTokenInput.value.trim()) {
+        tokenData.token = customTokenInput.value.trim();
+    }
+    
+    console.log('請求數據:', tokenData);
+    
+    try {
+        const url = `${API_BASE_URL}/upload/add_token`;
+        console.log('請求URL:', url);
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(tokenData)
+        });
+        
+        console.log('響應狀態:', response.status);
+        
+        const data = await response.json();
+        console.log('響應數據:', data);
+        
+        // 隱藏載入動畫
+        if (tokenLoader) {
+            tokenLoader.style.display = 'none';
+        }
+        if (tokenResultContent) {
+            tokenResultContent.style.display = 'block';
+        }
+        
+        if (response.ok && data.data) {
+            // 成功創建Token
+            displayTokenSuccess(data.data);
+        } else {
+            // 創建失敗
+            const errorMsg = data.errors?.[0]?.message || '創建Token失敗';
+            displayTokenError(errorMsg);
+        }
+        
+    } catch (error) {
+        console.error('創建Token錯誤:', error);
+        if (tokenLoader) {
+            tokenLoader.style.display = 'none';
+        }
+        if (tokenResultContent) {
+            tokenResultContent.style.display = 'block';
+        }
+        displayTokenError('網路錯誤，請稍後再試');
+    }
+}
+
+/**
+ * 顯示Token創建成功
+ */
+function displayTokenSuccess(data) {
+    const tokenJsonResult = document.getElementById('tokenJsonResult');
+    
+    if (tokenJsonResult) {
+        const result = {
+            status: "success",
+            message: "Token創建成功",
+            data: {
+                id: data.id,
+                token: data.token,
+                use_times: data.use_times,
+                created_at: new Date().toISOString()
+            }
+        };
+        tokenJsonResult.textContent = JSON.stringify(result, null, 2);
+    }
+}
+
+/**
+ * 顯示Token創建錯誤
+ */
+function displayTokenError(message) {
+    const tokenJsonResult = document.getElementById('tokenJsonResult');
+    
+    if (tokenJsonResult) {
+        const result = {
+            status: "error",
+            message: message,
+            data: null
+        };
+        tokenJsonResult.textContent = JSON.stringify(result, null, 2);
+    }
+}
+
+/**
+ * 複製Token到剪貼板
+ */
+async function copyToken() {
+    const tokenJsonResult = document.getElementById('tokenJsonResult');
+    
+    if (!tokenJsonResult) {
+        console.error('Token結果元素未找到');
+        return;
+    }
+    
+    try {
+        // 解析JSON並提取token值
+        const resultData = JSON.parse(tokenJsonResult.textContent);
+        const tokenValue = resultData.data?.token;
+        
+        if (tokenValue) {
+            await navigator.clipboard.writeText(tokenValue);
+            showError('Token已複製到剪貼板');
+        } else {
+            showError('未找到Token值');
+        }
+        
+    } catch (error) {
+        console.error('複製失敗:', error);
+        showError('複製失敗，請手動複製');
+    }
+}
+
+/**
+ * 重置Token表單
+ */
+function resetTokenForm() {
+    const centerIdInput = document.getElementById('centerIdInput');
+    const customTokenInput = document.getElementById('customTokenInput');
+    const useTimesInput = document.getElementById('useTimesInput');
+    const tokenResultSection = document.getElementById('tokenResultSection');
+    
+    if (centerIdInput) centerIdInput.value = '';
+    if (customTokenInput) customTokenInput.value = '';
+    if (useTimesInput) useTimesInput.value = '10';
+    if (tokenResultSection) tokenResultSection.style.display = 'none';
+    
+    validateTokenForm();
 }
 
 /**
@@ -300,8 +646,19 @@ function resetAnalysis() {
  * 页面加载完成后初始化
  */
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM加載完成，開始初始化...');
+    
+    // 检查关键DOM元素
+    console.log('檢查DOM元素:');
+    console.log('createTokenBtn:', document.getElementById('createTokenBtn'));
+    console.log('centerIdInput:', document.getElementById('centerIdInput'));
+    console.log('customTokenInput:', document.getElementById('customTokenInput'));
+    console.log('useTimesInput:', document.getElementById('useTimesInput'));
+    
     initApp();
 
     // 预先填充一个令牌便于测试
-    tokenInput.value = 'bobtest';
+    if (tokenInput) {
+        tokenInput.value = 'bobtest';
+    }
 });
