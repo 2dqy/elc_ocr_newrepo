@@ -15,6 +15,11 @@ from app.services.token_fun import verify_token, update_token_usage, get_ip_pref
 from app.services.image_fun import process_image
 from app.core.config import settings
 from fastapi import APIRouter
+import logging
+
+# 设置日志级别和格式（只需设置一次，通常放在脚本开头）
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 router = APIRouter(prefix="/upload")
 
@@ -162,8 +167,10 @@ async def upload_image(
 
             # 检查API响应状态
             if response.status_code == 200:
-                print(response.usage)
+                # print(response.usage)
                 # print(response.output.choices[0].message.content)
+                # 输出日志
+                logging.info(f"响应内容: {response}")
 
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"]

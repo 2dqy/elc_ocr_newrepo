@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # API配置
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "医疗图像分析API"
-    API_BASE_URL: str = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+    API_BASE_URL: str = os.getenv("API_BASE_URL")
     
     # CORS配置
     BACKEND_CORS_ORIGINS: List[str] = ["*"]

@@ -50,28 +50,6 @@ uv add -r requirements.txt
 cp .env.example .env
 ```
 
-### 环境变量配置说明
-
-| 变量名 | 说明 | 示例值 |
-|--------|------|--------|
-| `DASHSCOPE_API_KEY` | 阿里云百炼API密钥 | `sk-xxx` |
-| `HOST` | 服务器监听地址 | `0.0.0.0` |
-| `PORT` | 服务器端口 | `8000` |
-| `API_BASE_URL` | 前端API基础URL | `http://127.0.0.1:8000` (本地) 或 `https://your-domain.com` (生产) |
-| `MIN_PIXELS` | 图像最小像素 | `3136` |
-| `MAX_PIXELS` | 图像最大像素 | `6422528` |
-| `MAX_FILE_SIZE` | 最大文件大小(字节) | `512000` |
-
-**本地开发配置**:
-```env
-API_BASE_URL=http://127.0.0.1:8000
-```
-
-**生产环境配置**:
-```env
-API_BASE_URL=https://your-production-domain.com
-```
-
 ## 运行
 
 启动开发服务器：
