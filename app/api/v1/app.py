@@ -125,17 +125,18 @@ async def upload_image(
                         "type": "text",
                         "text": """請仔細分析上傳的圖像，執行以下步驟並傳回結果：
 
-                     1. 圖片相關性判斷：
-                     - 先判斷影像是否包含血壓計或血糖儀的顯示器或資料。 
-                     - 如果影像不包含血壓計或血糖儀相關內容（例如，風景照、人物照或其他無關圖片），請依照以下JSON格式傳回資料，並忽略後續步驟：
+                    1. 圖片相關性判斷：
+                    - 先判斷影像是否包含血壓計或血糖儀的顯示器或資料。 
+                    - 如果影像不包含血壓計或血糖儀相關內容（例如，風景照、人物照或其他無關圖片），請依照以下JSON格式傳回資料，並忽略後續步驟：
                          {
                            "data": {
                              "category": "Not relevant"
                            }
                          }
                          
-                     2. **錯誤狀態檢查**：
-                    - 如果圖片顯示血壓計或血糖儀的錯誤訊息（例如 E1、E2、Err、Error 或其他異常代碼），請識別錯誤訊息，並依照以下 JSON 格式傳回資料，確保不填充任何數值，並忽略後續數據提取步驟：
+                    2. **錯誤狀態檢查**：
+                    - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
+                    - 若圖片顯示錯誤訊息（如 E1、E2、Err、Error），僅回傳如下 JSON，所有數值設為 null，不要填預設值：
                          {
                            "data": {
                              "category": "error",
@@ -155,18 +156,21 @@ async def upload_image(
                              "status": "error_detected"
                            }
                          }
-                     3. 設備類型判斷（注意：嚴禁編造數據，若無法識別數值，則設為 null）：
+                    3. 設備類型與嚴禁根據推測或常識填寫任何數值，只能根據圖片內容識別資料，無法識別時設為 null。
+                     - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
                      - 血糖儀數據：血糖值
                      - 血壓計資料：收縮壓(SYS)、舒張壓(DIA)、心率(PUL)
                      - 如果無法從圖片中清晰識別數值，則相關字段必須設為 null。
 
 
-                     4. 關注訊息：
+                    4. 關注訊息：
+                     - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
                      - 醫療設備品牌和型號
                      - 測量時間（從圖片中提取，格式 HH:mm:ss，如果無法提取則返回 null）
-                     - 測量數值
+                     - 健康建議必須根據提取到的數值給出，若數值無效則建議重新測量。
                     
-                     5. 請依照以下JSON格式傳回資料：
+                    5. 請依照以下JSON格式傳回資料，嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。：
+                    
                          "data": {
                              "brand": "設備品牌",
                              "measure_date": "目前日期",
@@ -192,6 +196,8 @@ async def upload_image(
                          6. 若圖片顯示血壓計或血糖儀的錯誤訊息，則設置 category 為 "error"，並按照步驟 2 的 JSON 格式返回。
                          7. 若圖片不包含血壓計或血糖儀數據，則設置 category 為 "Not relevant"。
                          8. 用繁体中文回答
+                         9. 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
+                         10. 僅允許返回規定格式的 JSON，不得有多餘欄位或格式錯誤。
                     """
                     }]
             }]
@@ -201,7 +207,7 @@ async def upload_image(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
                 messages=messages,
-                temperature=0.2,
+                temperature=0.01,
             )
 
             # 检查API响应状态
@@ -253,18 +259,32 @@ async def upload_image(
 
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
-                        # # 检查other_value字段是否包含错误代码（E或e）
-                        # error_response = check_other_value_error(ocr_dict)
-                        # if error_response:
-                        #     return error_response
+                        # 计算AI使用情况
+                        usage_info = response.usage
+                        total_tokens = usage_info.get("total_tokens", 0)
+                        ai_usage_value = total_tokens * 10
+
+                        # 检查other_value字段是否包含错误代码（E或e）
+                        error_response = check_other_value_error(
+                            ocr_dict, current_date, client_ip, ai_usage_value, 
+                            file_upload_id, file.filename, len(file_content), token
+                        )
+                        if error_response:
+                            return error_response
 
                         # 检查血压数据有效性
-                        error_response = check_blood_pressure_validity(ocr_dict)
+                        error_response = check_blood_pressure_validity(
+                            ocr_dict, current_date, client_ip, ai_usage_value, 
+                            file_upload_id, file.filename, len(file_content), token
+                        )
                         if error_response:
                             return error_response
                             
                         # 检测是否是ai编造数据或非真实数据
-                        error_response = check_blood_pressure_fake_data(ocr_dict)
+                        error_response = check_blood_pressure_fake_data(
+                            ocr_dict, current_date, client_ip, ai_usage_value, 
+                            file_upload_id, file.filename, len(file_content), token
+                        )
                         if error_response:
                             return error_response
 
@@ -273,11 +293,6 @@ async def upload_image(
 
                         # 添加后端参数
                         ocr_dict["data"]["source_ip"] = client_ip
-
-                        # 计算AI使用情况
-                        usage_info = response.usage
-                        total_tokens = usage_info.get("total_tokens", 0)
-                        ai_usage_value = total_tokens * 10
                         ocr_dict["data"]["ai_usage"] = ai_usage_value
 
                         # 添加文件相关信息
