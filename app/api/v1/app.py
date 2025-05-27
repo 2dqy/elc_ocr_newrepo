@@ -191,7 +191,7 @@ async def upload_image(
                              "blood_sugar": "血糖值",
                              "other_value": "其他資料",
                              "suggest": "基於數據的 AI 健康建議",
-                             "analyze_reliability": ,
+                             "analyze_reliability": 准确率，根据实际生成的结果，范围在 0 到 1 之间,
                              "status": "分析狀態（例如 'completed', 'failed'）",
                          }
                    注意事項：
@@ -213,6 +213,7 @@ async def upload_image(
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
                 model='qwen-vl-ocr-latest',
+                # model='qwen-vl-plus',
                 messages=messages,
                 temperature=0.2,
             )
