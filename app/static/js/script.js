@@ -306,14 +306,8 @@ async function createToken() {
             tokenResultContent.style.display = 'block';
         }
         
-        if (response.ok && data.data) {
-            // 成功創建Token
-            displayTokenSuccess(data.data);
-        } else {
-            // 創建失敗
-            const errorMsg = data.errors?.[0]?.message || '創建Token失敗';
-            displayTokenError(errorMsg);
-        }
+        // 直接顯示後端返回的完整響應
+        displayTokenResponse(data);
         
     } catch (error) {
         console.error('創建Token錯誤:', error);
@@ -323,44 +317,22 @@ async function createToken() {
         if (tokenResultContent) {
             tokenResultContent.style.display = 'block';
         }
-        displayTokenError('網路錯誤，請稍後再試');
+        displayTokenResponse({
+            error: '網路錯誤，請稍後再試',
+            message: error.message
+        });
     }
 }
 
 /**
- * 顯示Token創建成功
+ * 顯示Token響應結果（直接顯示後端返回的JSON）
  */
-function displayTokenSuccess(data) {
+function displayTokenResponse(data) {
     const tokenJsonResult = document.getElementById('tokenJsonResult');
     
     if (tokenJsonResult) {
-        const result = {
-            status: "success",
-            message: "Token創建成功",
-            data: {
-                id: data.id,
-                token: data.token,
-                use_times: data.use_times,
-                created_at: new Date().toISOString()
-            }
-        };
-        tokenJsonResult.textContent = JSON.stringify(result, null, 2);
-    }
-}
-
-/**
- * 顯示Token創建錯誤
- */
-function displayTokenError(message) {
-    const tokenJsonResult = document.getElementById('tokenJsonResult');
-    
-    if (tokenJsonResult) {
-        const result = {
-            status: "error",
-            message: message,
-            data: null
-        };
-        tokenJsonResult.textContent = JSON.stringify(result, null, 2);
+        // 直接顯示後端返回的完整響應
+        tokenJsonResult.textContent = JSON.stringify(data, null, 2);
     }
 }
 
@@ -376,15 +348,24 @@ async function copyToken() {
     }
     
     try {
-        // 解析JSON並提取token值
+        // 解析JSON並提取token值（適配後端響應格式）
         const resultData = JSON.parse(tokenJsonResult.textContent);
-        const tokenValue = resultData.data?.token;
+        let tokenValue = null;
+        
+        // 嘗試從不同的響應格式中提取token
+        if (resultData.data?.token) {
+            tokenValue = resultData.data.token;
+        } else if (resultData.token) {
+            tokenValue = resultData.token;
+        }
         
         if (tokenValue) {
             await navigator.clipboard.writeText(tokenValue);
             showError('Token已複製到剪貼板');
         } else {
-            showError('未找到Token值');
+            // 如果沒有找到token，複製整個響應
+            await navigator.clipboard.writeText(tokenJsonResult.textContent);
+            showError('響應內容已複製到剪貼板');
         }
         
     } catch (error) {
@@ -479,11 +460,11 @@ function handleFiles(files) {
         return;
     }
 
-    // 验证文件大小（最大500KB）
-    if (file.size > 500 * 1024) {
-        showError('图像文件过大，请选择小于500KB的文件');
-        return;
-    }
+    // // 验证文件大小（最大500KB）
+    // if (file.size > 500 * 1024) {
+    //     showError('图像文件过大，请选择小于500KB的文件');
+    //     return;
+    // }
 
     selectedFile = file;
     displayImagePreview(file);
