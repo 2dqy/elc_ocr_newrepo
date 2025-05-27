@@ -460,11 +460,11 @@ function handleFiles(files) {
         return;
     }
 
-    // // 验证文件大小（最大500KB）
-    // if (file.size > 500 * 1024) {
-    //     showError('图像文件过大，请选择小于500KB的文件');
-    //     return;
-    // }
+    // 验证文件大小（最大700KB）
+    if (file.size > 700 * 1024) {
+        showError('图像文件过大，请选择小于700KB的文件');
+        return;
+    }
 
     selectedFile = file;
     displayImagePreview(file);
