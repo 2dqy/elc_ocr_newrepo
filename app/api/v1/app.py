@@ -212,8 +212,8 @@ async def upload_image(
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
-                model='qwen-vl-ocr-latest',
-                # model='qwen-vl-plus',
+                # model='qwen-vl-ocr-latest',
+                model="qwen-vl-plus",
                 messages=messages,
                 temperature=0.2,
             )
