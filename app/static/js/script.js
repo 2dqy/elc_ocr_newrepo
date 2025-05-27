@@ -456,19 +456,41 @@ function handleFiles(files) {
 
     // 验证文件类型
     if (!file.type.match('image.*')) {
-        showError('请选择有效的图像文件（JPG、PNG等）');
+        displayFileError('请选择有效的图像文件（JPG、PNG等）');
         return;
     }
 
     // 验证文件大小（最大700KB）
     if (file.size > 700 * 1024) {
-        showError('图像文件过大，请选择小于700KB的文件');
+        displayFileError('图像文件过大，请选择小于700KB的文件');
         return;
     }
 
     selectedFile = file;
     displayImagePreview(file);
     validateForm();
+}
+
+/**
+ * 显示文件验证错误
+ * @param {string} message - 错误消息
+ */
+function displayFileError(message) {
+    // 显示结果区域
+    resultSection.style.display = 'block';
+    loader.style.display = 'none';
+    resultContent.style.display = 'block';
+    
+    // 滚动到结果区域
+    resultSection.scrollIntoView({ behavior: 'smooth' });
+    
+    // 显示错误信息
+    const errorData = {
+        error: '文件验证失败',
+        message: message,
+        timestamp: new Date().toISOString()
+    };
+    displayResults(errorData);
 }
 
 /**
@@ -539,43 +561,44 @@ function uploadImage() {
         body: formData,
     })
     .then(response => {
-        // 检查Content-Type
+        console.log('响应状态:', response.status);
+        
+        // 无论成功还是失败，都尝试解析JSON
         const contentType = response.headers.get('content-type');
-        if (!response.ok) {
-            if (contentType && contentType.includes('application/json')) {
-                return response.json().then(err => {
-                    throw new Error(err.detail || `请求失败 (${response.status})`);
-                });
-            } else {
-                // 如果不是JSON响应，返回状态码错误
-                throw new Error(`服务器错误 (${response.status})`);
-            }
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // 如果不是JSON响应，创建错误对象
+            return {
+                error: `服务器返回非JSON响应 (${response.status})`,
+                status: response.status
+            };
         }
-        if (!contentType || !contentType.includes('application/json')) {
-            throw new Error('服务器返回了非JSON格式的响应');
-        }
-        return response.json();
     })
     .then(data => {
-        console.log('成功接收到响应:', data);
+        console.log('接收到响应数据:', data);
+        
+        // 隐藏加载动画，显示结果内容
+        loader.style.display = 'none';
+        resultContent.style.display = 'block';
+        
+        // 直接显示完整的响应数据（成功或错误）
         displayResults(data);
     })
     .catch(error => {
-        console.error('上传或处理错误:', error);
-        showError(error.message || '处理请求时发生未知错误');
+        console.error('网络或解析错误:', error);
+        
+        // 隐藏加载动画，显示结果内容
         loader.style.display = 'none';
-
-        // 显示错误结果
-        resultCategory.textContent = '错误';
-        resultBrand.textContent = '--';
-        resultTime.textContent = '--';
-        resultValues.textContent = '--';
-        resultAnalysis.textContent = error.message || '处理请求时发生未知错误';
-        confidenceBar.style.width = '0%';
-        confidenceValue.textContent = '0%';
-        rawData.textContent = JSON.stringify({error: error.message}, null, 2);
-
         resultContent.style.display = 'block';
+        
+        // 显示网络错误
+        const errorData = {
+            error: '网络错误或请求失败',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        };
+        displayResults(errorData);
     });
 }
 

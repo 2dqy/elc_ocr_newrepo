@@ -19,7 +19,7 @@ def verify_token(token: str = Form(...)):
 
         if not result:
             raise HTTPException(
-                status_code=200,
+                status_code=401,
                 detail={
                     "errors": [{
                         "message": "TOKEN_NOT_FOUND",
@@ -32,7 +32,7 @@ def verify_token(token: str = Form(...)):
 
         if result[0] <= 0:
             raise HTTPException(
-                status_code=200,
+                status_code=403,
                 detail={
                     "errors": [{
                         "message": "TOKEN次數不夠",
