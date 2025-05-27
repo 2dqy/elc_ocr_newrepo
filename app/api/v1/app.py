@@ -57,7 +57,14 @@ async def upload_image(
     start_time = time.time()
 
     # 检查token是否有效
-    verify_token(token)
+    try:
+        verify_token(token)
+    except HTTPException as e:
+        # 将HTTPException转换为JSONResponse
+        return JSONResponse(
+            status_code=e.status_code,
+            content=e.detail
+        )
 
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
@@ -184,7 +191,7 @@ async def upload_image(
                              "blood_sugar": "血糖值",
                              "other_value": "其他資料",
                              "suggest": "基於數據的 AI 健康建議",
-                             "analyze_reliability": 0.95,
+                             "analyze_reliability": ,
                              "status": "分析狀態（例如 'completed', 'failed'）",
                          }
                    注意事項：
@@ -205,7 +212,7 @@ async def upload_image(
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
-                model='qwen-vl-ocr-0413',
+                model='qwen-vl-ocr-latest',
                 messages=messages,
                 temperature=0.2,
             )

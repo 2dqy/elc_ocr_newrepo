@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 # 验证token
 
 def verify_token(token: str = Form(...)):
-    """验证用户的token是否有效"""
+    """验证用户的token是否有效，如果无效则抛出HTTPException"""
     try:
         # 使用Database类连接MySQL
         db = Database()
@@ -18,9 +18,9 @@ def verify_token(token: str = Form(...)):
         print("result:", result)
 
         if not result:
-            return JSONResponse(
-                status_code=401,
-                content={
+            raise HTTPException(
+                status_code=200,
+                detail={
                     "errors": [{
                         "message": "TOKEN_NOT_FOUND",
                         "extensions": {
@@ -31,27 +31,31 @@ def verify_token(token: str = Form(...)):
             )
 
         if result[0] <= 0:
-            return JSONResponse(
-                status_code=403,
-                content={
+            raise HTTPException(
+                status_code=200,
+                detail={
                     "errors": [{
-                        "message": "TOKEN_USED_UP",
+                        "message": "TOKEN次數不夠",
                         "extensions": {
-                            "code": "FORBIDDEN",
+                            "code": "TOKEN_error",
                         }
                     }]
                 }
             )
+        
         return token
+    except HTTPException:
+        # 重新抛出HTTPException
+        raise
     except Exception as e:
         print(f"Token验证错误: {str(e)}")
-        return JSONResponse(
+        raise HTTPException(
             status_code=500,
-            content={
+            detail={
                 "errors": [{
-                    "message": "Token次数已用完",
+                    "message": "Token验证系统错误",
                     "extensions": {
-                        "code": "FORBIDDEN",
+                        "code": "INTERNAL_ERROR",
                     }
                 }]
             }
