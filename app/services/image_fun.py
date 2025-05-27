@@ -41,17 +41,17 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
         new_height = int(height * scale_factor)
         img = img.resize((new_width, new_height), Image.LANCZOS)
 
-    # 增强亮度 - 提高10%
-    enhancer = ImageEnhance.Brightness(img)
-    img = enhancer.enhance(1.1)
-
-    # 增强对比度 - 提高20%
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.2)
-
-    # 锐化图像 - 轻微锐化
-    enhancer = ImageEnhance.Sharpness(img)
-    img = enhancer.enhance(1.3)
+    # # 增强亮度 - 提高10%
+    # enhancer = ImageEnhance.Brightness(img)
+    # img = enhancer.enhance(1.3)
+    #
+    # # 增强对比度 - 提高20%
+    # enhancer = ImageEnhance.Contrast(img)
+    # img = enhancer.enhance(1.3)
+    #
+    # # 锐化图像 - 轻微锐化
+    # enhancer = ImageEnhance.Sharpness(img)
+    # img = enhancer.enhance(1.8)
 
     # 保存为JPEG字节流
     output_buffer = io.BytesIO()
@@ -82,7 +82,7 @@ def compress_image(image_data, max_size_kb=500):
         
         # 初始压缩质量（逐步尝试降低）
         quality = 98
-        step = 3
+        step = 2
         
         while quality > 10:
             # 创建内存缓冲区

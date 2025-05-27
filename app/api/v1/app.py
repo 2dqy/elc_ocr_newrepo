@@ -13,6 +13,7 @@ import string
 from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
 from app.services.image_fun import process_image, compress_image
+from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, check_blood_pressure_fake_data
 from app.core.config import settings
 from fastapi import APIRouter
 import logging
@@ -252,65 +253,20 @@ async def upload_image(
 
                     # 添加后端获取的参数到data中
                     if ocr_dict["data"]:
-                        # 检查other_value字段是否包含错误代码（E或e）
-                        if "other_value" in ocr_dict["data"] and ocr_dict["data"]["other_value"]:
-                            other_value = str(ocr_dict["data"]["other_value"]).strip()
-                            if other_value and ('E' in other_value or 'e' in other_value):
-                                print(f"other_value包含错误代码: {other_value}")
+                        # # 检查other_value字段是否包含错误代码（E或e）
+                        # error_response = check_other_value_error(ocr_dict)
+                        # if error_response:
+                        #     return error_response
 
-                                response_data = {
-                                    "errors": [
-                                        {
-                                            "message": f"圖像有錯誤或不清晰",
-                                            "extensions": {
-                                                "code": "IMG__ERROR"
-                                            }
-                                        }
-                                    ]
-                                }
-                                return JSONResponse(content=response_data)
-
-                        # 判断血压是否有null值或0开头的值
-                        if "category" in ocr_dict["data"] and ocr_dict["data"]["category"] == "blood_pressure":
-                            if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
-                                bp_data = ocr_dict["data"]["blood_pressure"]
-
-                                def is_invalid_value(value):
-                                    """检查值是否无效（null、空、或以0开头）"""
-                                    if not value or value == "null":
-                                        return True
-                                    # 提取数字部分检查是否以0开头
-                                    import re
-                                    # 提取开头的数字部分
-                                    match = re.match(r'^(\d+)', str(value).strip())
-                                    if match:
-                                        number_part = match.group(1)
-                                        # 检查是否以0开头且不是单独的0（像00、01、02等都是无效的）
-                                        if number_part.startswith('0') and len(number_part) > 1:
-                                            return True
-                                        # 检查是否就是0
-                                        if number_part == '0':
-                                            return True
-                                    return False
-
-                                # 检查血压三个参数是否有无效值
-                                if (is_invalid_value(bp_data.get("sys")) or
-                                        is_invalid_value(bp_data.get("dia")) or
-                                        is_invalid_value(bp_data.get("pul"))):
-                                    print(
-                                        f"血压数据无效: sys={bp_data.get('sys')}, dia={bp_data.get('dia')}, pul={bp_data.get('pul')}")
-
-                                    response_data = {
-                                        "errors": [
-                                            {
-                                                "message": f"圖像有錯誤或不清晰",
-                                                "extensions": {
-                                                    "code": "IMG__ERROR"
-                                                }
-                                            }
-                                        ]
-                                    }
-                                    return JSONResponse(content=response_data)
+                        # 检查血压数据有效性
+                        error_response = check_blood_pressure_validity(ocr_dict)
+                        if error_response:
+                            return error_response
+                            
+                        # 检测是否是ai编造数据或非真实数据
+                        error_response = check_blood_pressure_fake_data(ocr_dict)
+                        if error_response:
+                            return error_response
 
                         # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
