@@ -123,8 +123,8 @@ async def upload_image(
                 },
                     {
                         "type": "text",
-                        "text": """請仔細分析上傳的圖像，執行以下步驟並傳回結果：
-
+                        "text": """
+                    請仔細分析上傳的圖像，執行以下步驟並傳回結果：
                     1. 圖片相關性判斷：
                     - 先判斷影像是否包含血壓計或血糖儀的顯示器或資料。 
                     - 如果影像不包含血壓計或血糖儀相關內容（例如，風景照、人物照或其他無關圖片），請依照以下JSON格式傳回資料，並忽略後續步驟：
@@ -205,7 +205,7 @@ async def upload_image(
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
-                model='qwen-vl-ocr-latest',
+                model='qwen-vl-ocr-0413',
                 messages=messages,
                 temperature=0.2,
             )
