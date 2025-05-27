@@ -73,32 +73,32 @@ def compress_image(image_data, max_size_kb=500):
     max_size_bytes = max_size_kb * 1024
     
     try:
-        # 使用PIL打开图像
-        img = Image.open(io.BytesIO(image_data))
-        
-        # 如果是 PNG 或带 alpha 通道，转换为 RGB
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        
-        # 初始压缩质量（逐步尝试降低）
-        quality = 98
-        step = 2
-        
-        while quality > 10:
-            # 创建内存缓冲区
-            output_buffer = io.BytesIO()
-            img.save(output_buffer, "JPEG", quality=quality)
-            compressed_data = output_buffer.getvalue()
-            
-            # 检查压缩后的大小
-            if len(compressed_data) <= max_size_bytes:
-                print(f"图像压缩成功：质量{quality}% -> {len(compressed_data)/1024:.1f}KB")
-                return compressed_data
-            
-            quality -= step
-        
+        # # 使用PIL打开图像
+        # img = Image.open(io.BytesIO(image_data))
+        #
+        # # 如果是 PNG 或带 alpha 通道，转换为 RGB
+        # if img.mode in ("RGBA", "P"):
+        #     img = img.convert("RGB")
+        #
+        # # 初始压缩质量（逐步尝试降低）
+        # quality = 98
+        # step = 2
+        #
+        # while quality > 10:
+        #     # 创建内存缓冲区
+        #     output_buffer = io.BytesIO()
+        #     img.save(output_buffer, "JPEG", quality=quality)
+        #     compressed_data = output_buffer.getvalue()
+        #
+        #     # 检查压缩后的大小
+        #     if len(compressed_data) <= max_size_bytes:
+        #         print(f"图像压缩成功：质量{quality}% -> {len(compressed_data)/1024:.1f}KB")
+        #         return compressed_data
+        #
+        #     quality -= step
+
         # 如果无法压缩到目标大小
-        print(f"图像无法压缩到 {max_size_kb}KB 以下，最小已尝试 {quality+step}%")
+        # print(f"图像无法压缩到 {max_size_kb}KB 以下，最小已尝试 {quality+step}%")
         return None
         
     except Exception as e:
