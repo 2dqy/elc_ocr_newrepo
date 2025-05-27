@@ -2,10 +2,11 @@ from fastapi.responses import JSONResponse
 import re
 
 
-def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None, file_name=None, file_size=0, token=None):
+def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None,
+                            file_name=None, file_size=0, token=None):
     """
     检查other_value字段是否包含错误代码（E或e）
-    
+
     参数:
         ocr_dict: OCR识别结果字典
         current_date: 当前日期
@@ -53,10 +54,11 @@ def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usag
     return None
 
 
-def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None, file_name=None, file_size=0, token=None):
+def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None,
+                                  file_name=None, file_size=0, token=None):
     """
     检查血压数据是否有效（null值或0开头的值）
-    
+
     参数:
         ocr_dict: OCR识别结果字典
         current_date: 当前日期
@@ -127,10 +129,11 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
     return None
 
 
-def check_blood_pressure_fake_data(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None, file_name=None, file_size=0, token=None):
+def check_blood_pressure_fake_data(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None,
+                                   file_name=None, file_size=0, token=None):
     """
     检查血压数据是否都是10的整倍数（可能是AI编造的数据）
-    
+
     参数:
         ocr_dict: OCR识别结果字典
         current_date: 当前日期

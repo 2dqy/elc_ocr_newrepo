@@ -41,66 +41,20 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
         new_height = int(height * scale_factor)
         img = img.resize((new_width, new_height), Image.LANCZOS)
 
-    # # 增强亮度 - 提高10%
+    # # 增强亮度 - 提高20%
     # enhancer = ImageEnhance.Brightness(img)
-    # img = enhancer.enhance(1.3)
+    # img = enhancer.enhance(1.2)
     #
-    # # 增强对比度 - 提高20%
+    # # 增强对比度 - 提高30%
     # enhancer = ImageEnhance.Contrast(img)
-    # img = enhancer.enhance(1.3)
+    # img = enhancer.enhance(1.2)
     #
     # # 锐化图像 - 轻微锐化
     # enhancer = ImageEnhance.Sharpness(img)
-    # img = enhancer.enhance(1.8)
+    # img = enhancer.enhance(1.2)
 
     # 保存为JPEG字节流
     output_buffer = io.BytesIO()
     img.save(output_buffer, format='JPEG', quality=95)
 
     return output_buffer.getvalue()
-
-
-def compress_image(image_data, max_size_kb=500):
-    """
-    压缩图像到指定大小以下
-    
-    参数:
-        image_data: 图像二进制数据
-        max_size_kb: 最大文件大小（KB），默认500KB
-    返回:
-        压缩后的图像数据，如果压缩失败返回None
-    """
-    max_size_bytes = max_size_kb * 1024
-    
-    try:
-        # # 使用PIL打开图像
-        # img = Image.open(io.BytesIO(image_data))
-        #
-        # # 如果是 PNG 或带 alpha 通道，转换为 RGB
-        # if img.mode in ("RGBA", "P"):
-        #     img = img.convert("RGB")
-        #
-        # # 初始压缩质量（逐步尝试降低）
-        # quality = 98
-        # step = 2
-        #
-        # while quality > 10:
-        #     # 创建内存缓冲区
-        #     output_buffer = io.BytesIO()
-        #     img.save(output_buffer, "JPEG", quality=quality)
-        #     compressed_data = output_buffer.getvalue()
-        #
-        #     # 检查压缩后的大小
-        #     if len(compressed_data) <= max_size_bytes:
-        #         print(f"图像压缩成功：质量{quality}% -> {len(compressed_data)/1024:.1f}KB")
-        #         return compressed_data
-        #
-        #     quality -= step
-
-        # 如果无法压缩到目标大小
-        # print(f"图像无法压缩到 {max_size_kb}KB 以下，最小已尝试 {quality+step}%")
-        return None
-        
-    except Exception as e:
-        print(f"图像压缩失败: {e}")
-        return None

@@ -12,7 +12,7 @@ import string
 
 from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
-from app.services.image_fun import process_image, compress_image
+from app.services.image_fun import process_image
 from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, check_blood_pressure_fake_data
 from app.core.config import settings
 from fastapi import APIRouter
@@ -20,6 +20,7 @@ import logging
 
 # 设置日志级别和格式（只需设置一次，通常放在脚本开头）
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 router = APIRouter(prefix="/upload")
 
@@ -69,6 +70,7 @@ async def upload_image(
     # 获取当前日期
     current_date = datetime.now().strftime("%Y-%m-%d")
 
+
     # 获取客户端IP地址
     client_ip = request.client.host if request.client else "unknown"
 
@@ -82,7 +84,7 @@ async def upload_image(
             content={
                 "errors": [
                     {
-                        "messages": "唯有上载圖像文件",
+                        "messages": "唯有上载图像文件",
                         "extensions": {
                             "code": "UPLOAD_FILE_FAIL"}
                     }
@@ -92,25 +94,20 @@ async def upload_image(
     # 读取文件内容
     file_content = await file.read()
 
-    # 检查文件大小，如果超过限制则尝试压缩
+    # 检查文件大小
     if len(file_content) > MAX_FILE_SIZE:
-        # 尝试压缩图像
-        compressed_content = compress_image(file_content, MAX_FILE_SIZE // 1024)
-        if compressed_content is None:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "errors": [
-                        {
-                            "messages": "文件太大無法壓縮",
-                            "extensions": {
-                                "code": "UPLOAD_FILE_FAIL"}
-                        }
-                    ]
-                }
-            )
-        # 使用压缩后的内容
-        file_content = compressed_content
+        return JSONResponse(
+            status_code=400,
+            content={
+                "errors": [
+                    {
+                        "messages": "文件大小超过500KB制",
+                        "extensions": {
+                            "code": "UPLOAD_FILE_FAIL"}
+                    }
+                ]
+            }
+        )
     try:
         # 处理图像
         processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
@@ -130,81 +127,49 @@ async def upload_image(
                 },
                     {
                         "type": "text",
-                        "text": """
-                    請仔細分析上傳的圖像，執行以下步驟並傳回結果：
-                    1. 圖片相關性判斷：
-                    - 先判斷影像是否包含血壓計或血糖儀的顯示器或資料。 
-                    - 如果影像不包含血壓計或血糖儀相關內容（例如，風景照、人物照或其他無關圖片），請依照以下JSON格式傳回資料，並忽略後續步驟：
-                         {
-                           "data": {
-                             "category": "Not relevant"
-                           }
-                         }
-                         
-                    2. **錯誤狀態檢查**：
-                    - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
-                    - 若圖片顯示錯誤訊息（如 E1、E2、Err、Error），僅回傳如下 JSON，所有數值設為 null，不要填預設值：
-                         {
-                           "data": {
-                             "category": "error",
-                             "error_message": "識別到的錯誤訊息（如 E1、Err 或無法識別）",
-                             "brand": null,
-                             "measure_date": null,
-                             "measure_time": null,
-                             "blood_pressure": {
-                               "sys": null,
-                               "dia": null,
-                               "pul": null
-                             },
-                             "blood_sugar": null,
-                             "other_value": null,
-                             "suggest": "設備顯示錯誤訊息，請檢查設備是否正確操作或重新測量。",
-                             "analyze_reliability": 0.0,
-                             "status": "error_detected"
-                           }
-                         }
-                    3. 設備類型與嚴禁根據推測或常識填寫任何數值，只能根據圖片內容識別資料，無法識別時設為 null。
-                     - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
-                     - 血糖儀數據：血糖值
-                     - 血壓計資料：收縮壓(SYS)、舒張壓(DIA)、心率(PUL)
-                     - 如果無法從圖片中清晰識別數值，則相關字段必須設為 null。
+                        "text": """请仔细分析上传的图像，执行以下步骤并返回结果：
 
+                    1. 图片相关性判断：
+                       - 首先判断图像是否包含血压计或血糖仪的显示屏或数据。
+                       - 如果图像不包含血压计或血糖仪相关内容（例如，风景照、人物照或其他无关图片），请按照以下JSON格式返回数据：
+                            "data": {
+                                    "category": "Not relevant"，
+                                    }后续提示词可忽略                                 
 
-                    4. 關注訊息：
-                     - 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
-                     - 醫療設備品牌和型號
-                     - 測量時間（從圖片中提取，格式 HH:mm:ss，如果無法提取則返回 null）
-                     - 健康建議必須根據提取到的數值給出，若數值無效則建議重新測量。
+                    2. 设备类型判断：
+                       - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
+                       - 血糖仪数据：血糖值
                     
-                    5. 請依照以下JSON格式傳回資料，嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。：
+                    3. 关注信息：
+                       - 医疗设备品牌和型号
+                       - 测量时间（从图片中提取，格式 HH:mm:ss，如果无法提取则返回 null）
+                       - 测量数值
                     
-                         "data": {
-                             "brand": "設備品牌",
-                             "measure_date": "目前日期",
-                             "measure_time": "圖片中的測量時間",
-                             "category": "blood_pressure 或 blood_sugar",
-                             "blood_pressure": {
-                                 "sys": "收縮壓值",
-                                 "dia": "舒張壓值",
-                                 "pul": "心率值"
-                             },
-                             "blood_sugar": "血糖值",
-                             "other_value": "其他資料",
-                             "suggest": "基於數據的 AI 健康建議",
-                             "analyze_reliability": 准确率，根据实际生成的结果，范围在 0 到 1 之间,
-                             "status": "分析狀態（例如 'completed', 'failed'）",
-                         }
-                   注意事項：
-                         1. 確保分析準確，不要捏造數據
-                         2. 如果是血壓數據，blood_sugar字段設為null
-                         3. 如果是血糖數據，blood_pressure物件的所有欄位設為null
-                         4. 時間必須從圖片中提取，如果無法提取則返回null
-                         5. 健康建議需基於提取的數值，提供專業且合理的建議
-                         6. 若圖片顯示血壓計或血糖儀的錯誤訊息，則設置 category 為 "error"，並按照步驟 2 的 JSON 格式返回。
-                         7. 若圖片不包含血壓計或血糖儀數據，則設置 category 為 "Not relevant"。
-                         8. 用繁体中文回答
-                         9. 嚴禁根據常識、經驗或推測填寫任何資料，所有欄位只能根據圖片內容填寫，否則設為 null。
-                         10. 僅允許返回規定格式的 JSON，不得有多餘欄位或格式錯誤。
+                    请按照以下JSON格式返回数据：
+                    "data": {
+                            "brand": "设备品牌",
+                            "measure_date": "当前日期",
+                            "measure_time": "图片中的测量时间",
+                            "category": "blood_pressure 或 blood_sugar",
+                            "blood_pressure": {
+                                "sys": "收缩压值",
+                                "dia": "舒张压值",
+                                "pul": "心率值"
+                            },
+                            "blood_sugar": "血糖值",
+                            "other_value": "其他数据",
+                            "suggest": "基于数据的 AI 健康建议",
+                            "analyze_reliability": 0.95,
+                            "status": "分析状态（例如 'completed', 'failed'）",
+                            }
+                    注意事项：
+                        1. 如果是血压数据，blood_sugar字段设为null
+                        2. 如果是血糖数据，blood_pressure对象的所有字段设为null
+                        3. 时间必须从图片中提取，如果无法提取则返回null
+                        4. 请根据数值给出专业的健康建议
+                        5. 确保分析准确，不要捏造数据
+                        6. 如果图片不包含血压计或血糖仪数据，设置category 为 "error"，其他值为空。
+
                     """
                     }]
             }]
@@ -212,8 +177,7 @@ async def upload_image(
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
-                # model='qwen-vl-ocr-latest',
-                model="qwen-vl-plus",
+                model='qwen-vl-ocr-latest',
                 messages=messages,
                 temperature=0.2,
             )
@@ -223,7 +187,7 @@ async def upload_image(
                 # print(response.usage)
                 # print(response.output.choices[0].message.content)
                 # 输出日志
-                logging.info(f"回應內容: {response}")
+                logging.info(f"响应内容: {response}")
 
                 # 获取OCR结果并处理格式
                 raw_result = response["output"]["choices"][0]["message"]["content"]
@@ -256,7 +220,7 @@ async def upload_image(
                         response_data = {
                             "errors": [
                                 {
-                                    "message": f"圖像不相關",
+                                    "message": f"图像不相关",
                                     "extensions": {
                                         "code": "IMG__ERROR"
                                     }
@@ -282,25 +246,30 @@ async def upload_image(
 
                         # 检查血压数据有效性
                         error_response = check_blood_pressure_validity(
-                            ocr_dict, current_date, client_ip, ai_usage_value, 
+                            ocr_dict, current_date, client_ip, ai_usage_value,
                             file_upload_id, file.filename, len(file_content), token
                         )
                         if error_response:
                             return error_response
-                            
-                        # 检测是否是ai编造数据或非真实数据
-                        error_response = check_blood_pressure_fake_data(
-                            ocr_dict, current_date, client_ip, ai_usage_value, 
-                            file_upload_id, file.filename, len(file_content), token
-                        )
-                        if error_response:
-                            return error_response
+
+                        # # 检测是否是ai编造数据或非真实数据
+                        # error_response = check_blood_pressure_fake_data(
+                        #     ocr_dict, current_date, client_ip, ai_usage_value,
+                        #     file_upload_id, file.filename, len(file_content), token
+                        # )
+                        # if error_response:
+                        #     return error_response
 
                         # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
 
                         # 添加后端参数
                         ocr_dict["data"]["source_ip"] = client_ip
+
+                        # 计算AI使用情况
+                        usage_info = response.usage
+                        total_tokens = usage_info.get("total_tokens", 0)
+                        ai_usage_value = total_tokens * 10
                         ocr_dict["data"]["ai_usage"] = ai_usage_value
 
                         # 添加文件相关信息
@@ -345,15 +314,14 @@ async def upload_image(
                                     # 提取数值部分（去除可能的单位）
                                     value_str = str(bs_value).strip()
                                     print(f"原始血糖值: '{value_str}'")
-
+                                    
                                     # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
                                     units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg"]
                                     for unit in units_to_remove:
                                         if unit.lower() in value_str.lower():
                                             # 不区分大小写移除单位
                                             import re
-                                            value_str = re.sub(re.escape(unit), '', value_str,
-                                                               flags=re.IGNORECASE).strip()
+                                            value_str = re.sub(re.escape(unit), '', value_str, flags=re.IGNORECASE).strip()
                                             print(f"移除单位 '{unit}' 后: '{value_str}'")
 
                                     blood_sugar_value = float(value_str)
@@ -392,7 +360,7 @@ async def upload_image(
                     response_data = {
                         "errors": [
                             {
-                                "message": f"OCR解析失敗",
+                                "message": f"OCR解析失败",
                                 "extensions": {
                                     "code": "OCR__ERROR"
                                 }
@@ -404,7 +372,7 @@ async def upload_image(
                 response_data = {
                     "errors": [
                         {
-                            "message": f"OCR API呼叫錯誤",
+                            "message": f"OCR API调用错误",
                             "extensions": {
                                 "code": "OCR_API_ERROR"
                             }
@@ -418,7 +386,7 @@ async def upload_image(
             response_data = {
                 "errors": [
                     {
-                        "message": f"OCR API呼叫錯誤: {str(api_error)}",
+                        "message": f"OCR API调用错误: {str(api_error)}",
                         "extensions": {
                             "code": "OCR_API_ERROR"
                         }
@@ -428,7 +396,7 @@ async def upload_image(
 
         # 计算执行时间
         execution_time = time.time() - start_time
-        print(f"處理完成，執行時間: {execution_time:.2f}秒")
+        print(f"处理完成，执行时间: {execution_time:.2f}秒")
 
         # 将执行时间添加到响应中
         # response_data["execution_time"] = f"{execution_time:.2f}秒"
@@ -597,4 +565,6 @@ async def get_config():
         "api_base_url": settings.API_BASE_URL
     }
 
+
 # 原来的健康检查接口改为新的路径
+

@@ -42,7 +42,7 @@ def verify_token(token: str = Form(...)):
                     }]
                 }
             )
-        
+
         return token
     except HTTPException:
         # 重新抛出HTTPException
@@ -60,6 +60,7 @@ def verify_token(token: str = Form(...)):
                 }]
             }
         )
+
 
 # 更新token使用次数
 def update_token_usage(token: str):

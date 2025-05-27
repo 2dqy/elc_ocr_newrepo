@@ -105,11 +105,11 @@ function switchTab(targetTab) {
     // 移除所有活動狀態
     tabBtns.forEach(btn => btn.classList.remove('active'));
     tabContents.forEach(content => content.classList.remove('active'));
-    
+
     // 添加活動狀態到目標選項卡
     document.querySelector(`[data-tab="${targetTab}"]`).classList.add('active');
     document.getElementById(`${targetTab}Tab`).classList.add('active');
-    
+
     // 重置相關狀態
     if (targetTab === 'analysis') {
         resetAnalysis();
@@ -123,7 +123,7 @@ function switchTab(targetTab) {
  */
 function initTokenManagement() {
     console.log('初始化Token管理功能...');
-    
+
     // 等待一小段时间确保DOM完全加载
     setTimeout(() => {
         // 重新获取DOM元素
@@ -133,13 +133,13 @@ function initTokenManagement() {
         const useTimesInput = document.getElementById('useTimesInput');
         const copyTokenBtn = document.getElementById('copyTokenBtn');
         const newTokenBtn = document.getElementById('newTokenBtn');
-        
+
         console.log('重新檢查DOM元素:');
         console.log('createTokenBtn:', createTokenBtn);
         console.log('centerIdInput:', centerIdInput);
         console.log('customTokenInput:', customTokenInput);
         console.log('useTimesInput:', useTimesInput);
-        
+
         // 检查DOM元素是否存在
         if (!createTokenBtn) {
             console.error('createTokenBtn 元素未找到');
@@ -149,9 +149,9 @@ function initTokenManagement() {
             console.error('centerIdInput 元素未找到');
             return;
         }
-        
+
         console.log('所有Token管理DOM元素已找到');
-        
+
         // 創建Token按鈕事件
         createTokenBtn.addEventListener('click', (e) => {
             console.log('創建Token按鈕被點擊');
@@ -159,40 +159,40 @@ function initTokenManagement() {
             e.stopPropagation();
             createToken();
         });
-        
+
         // 複製Token按鈕事件
         if (copyTokenBtn) {
             copyTokenBtn.addEventListener('click', copyToken);
         }
-        
+
         // 新Token按鈕事件
         if (newTokenBtn) {
             newTokenBtn.addEventListener('click', resetTokenForm);
         }
-        
+
         // 輸入驗證
         centerIdInput.addEventListener('input', () => {
             console.log('centerIdInput 輸入變化:', centerIdInput.value);
             validateTokenForm();
         });
-        
+
         if (customTokenInput) {
             customTokenInput.addEventListener('input', () => {
                 console.log('customTokenInput 輸入變化:', customTokenInput.value);
                 validateTokenForm();
             });
         }
-        
+
         if (useTimesInput) {
             useTimesInput.addEventListener('input', () => {
                 console.log('useTimesInput 輸入變化:', useTimesInput.value);
                 validateTokenForm();
             });
         }
-        
+
         // 初始验证
         validateTokenForm();
-        
+
         console.log('Token管理功能初始化完成');
     }, 100);
 }
@@ -206,20 +206,20 @@ function validateTokenForm() {
     const createTokenBtn = document.getElementById('createTokenBtn');
     const customTokenInput = document.getElementById('customTokenInput');
     const useTimesInput = document.getElementById('useTimesInput');
-    
+
     if (!centerIdInput || !createTokenBtn) {
         console.error('Token表單元素未找到');
         return;
     }
-    
+
     const centerIdValid = centerIdInput.value.trim() !== '';
     const customTokenValid = !customTokenInput || customTokenInput.value === '' || /^[a-zA-Z0-9]+$/.test(customTokenInput.value);
     const useTimesValid = !useTimesInput || (useTimesInput.value >= 1 && useTimesInput.value <= 1000);
-    
+
     createTokenBtn.disabled = !(centerIdValid && customTokenValid && useTimesValid);
-    
+
     console.log('表單驗證:', { centerIdValid, customTokenValid, useTimesValid, disabled: createTokenBtn.disabled });
-    
+
     // 顯示自定義Token驗證錯誤
     if (customTokenInput && customTokenInput.value && !customTokenValid) {
         customTokenInput.style.borderColor = 'var(--error-color)';
@@ -234,7 +234,7 @@ function validateTokenForm() {
 async function createToken() {
     console.log('開始創建Token...');
     console.log('API_BASE_URL:', API_BASE_URL);
-    
+
     // 动态获取DOM元素
     const centerIdInput = document.getElementById('centerIdInput');
     const customTokenInput = document.getElementById('customTokenInput');
@@ -242,17 +242,17 @@ async function createToken() {
     const tokenResultSection = document.getElementById('tokenResultSection');
     const tokenLoader = document.getElementById('tokenLoader');
     const tokenResultContent = document.getElementById('tokenResultContent');
-    
+
     if (!centerIdInput || !centerIdInput.value.trim()) {
         showError('請輸入中心ID');
         return;
     }
-    
+
     if (!API_BASE_URL) {
         showError('API配置未加載，請刷新頁面重試');
         return;
     }
-    
+
     // 顯示載入狀態
     if (tokenResultSection) {
         tokenResultSection.style.display = 'block';
@@ -263,28 +263,28 @@ async function createToken() {
     if (tokenResultContent) {
         tokenResultContent.style.display = 'none';
     }
-    
+
     // 滾動到結果區域
     if (tokenResultSection) {
         tokenResultSection.scrollIntoView({ behavior: 'smooth' });
     }
-    
+
     // 準備請求數據
     const tokenData = {
         center_id: centerIdInput.value.trim(),
         use_times: useTimesInput ? (parseInt(useTimesInput.value) || 10) : 10
     };
-    
+
     if (customTokenInput && customTokenInput.value.trim()) {
         tokenData.token = customTokenInput.value.trim();
     }
-    
+
     console.log('請求數據:', tokenData);
-    
+
     try {
         const url = `${API_BASE_URL}/upload/add_token`;
         console.log('請求URL:', url);
-        
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -292,12 +292,12 @@ async function createToken() {
             },
             body: JSON.stringify(tokenData)
         });
-        
+
         console.log('響應狀態:', response.status);
-        
+
         const data = await response.json();
         console.log('響應數據:', data);
-        
+
         // 隱藏載入動畫
         if (tokenLoader) {
             tokenLoader.style.display = 'none';
@@ -305,10 +305,10 @@ async function createToken() {
         if (tokenResultContent) {
             tokenResultContent.style.display = 'block';
         }
-        
+
         // 直接顯示後端返回的完整響應
         displayTokenResponse(data);
-        
+
     } catch (error) {
         console.error('創建Token錯誤:', error);
         if (tokenLoader) {
@@ -329,7 +329,7 @@ async function createToken() {
  */
 function displayTokenResponse(data) {
     const tokenJsonResult = document.getElementById('tokenJsonResult');
-    
+
     if (tokenJsonResult) {
         // 直接顯示後端返回的完整響應
         tokenJsonResult.textContent = JSON.stringify(data, null, 2);
@@ -341,24 +341,24 @@ function displayTokenResponse(data) {
  */
 async function copyToken() {
     const tokenJsonResult = document.getElementById('tokenJsonResult');
-    
+
     if (!tokenJsonResult) {
         console.error('Token結果元素未找到');
         return;
     }
-    
+
     try {
         // 解析JSON並提取token值（適配後端響應格式）
         const resultData = JSON.parse(tokenJsonResult.textContent);
         let tokenValue = null;
-        
+
         // 嘗試從不同的響應格式中提取token
         if (resultData.data?.token) {
             tokenValue = resultData.data.token;
         } else if (resultData.token) {
             tokenValue = resultData.token;
         }
-        
+
         if (tokenValue) {
             await navigator.clipboard.writeText(tokenValue);
             showError('Token已複製到剪貼板');
@@ -367,7 +367,7 @@ async function copyToken() {
             await navigator.clipboard.writeText(tokenJsonResult.textContent);
             showError('響應內容已複製到剪貼板');
         }
-        
+
     } catch (error) {
         console.error('複製失敗:', error);
         showError('複製失敗，請手動複製');
@@ -382,12 +382,12 @@ function resetTokenForm() {
     const customTokenInput = document.getElementById('customTokenInput');
     const useTimesInput = document.getElementById('useTimesInput');
     const tokenResultSection = document.getElementById('tokenResultSection');
-    
+
     if (centerIdInput) centerIdInput.value = '';
     if (customTokenInput) customTokenInput.value = '';
     if (useTimesInput) useTimesInput.value = '10';
     if (tokenResultSection) tokenResultSection.style.display = 'none';
-    
+
     validateTokenForm();
 }
 
@@ -480,10 +480,10 @@ function displayFileError(message) {
     resultSection.style.display = 'block';
     loader.style.display = 'none';
     resultContent.style.display = 'block';
-    
+
     // 滚动到结果区域
     resultSection.scrollIntoView({ behavior: 'smooth' });
-    
+
     // 显示错误信息
     const errorData = {
         error: '文件验证失败',
@@ -562,7 +562,7 @@ function uploadImage() {
     })
     .then(response => {
         console.log('响应状态:', response.status);
-        
+
         // 无论成功还是失败，都尝试解析JSON
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -577,21 +577,21 @@ function uploadImage() {
     })
     .then(data => {
         console.log('接收到响应数据:', data);
-        
+
         // 隐藏加载动画，显示结果内容
         loader.style.display = 'none';
         resultContent.style.display = 'block';
-        
+
         // 直接显示完整的响应数据（成功或错误）
         displayResults(data);
     })
     .catch(error => {
         console.error('网络或解析错误:', error);
-        
+
         // 隐藏加载动画，显示结果内容
         loader.style.display = 'none';
         resultContent.style.display = 'block';
-        
+
         // 显示网络错误
         const errorData = {
             error: '网络错误或请求失败',
@@ -614,14 +614,14 @@ function displayResults(data) {
     try {
         // 获取JSON显示元素
         const jsonResult = document.getElementById('jsonResult');
-        
+
         // 格式化显示JSON数据
         jsonResult.textContent = JSON.stringify(data, null, 2);
-        
+
     } catch (error) {
         console.error('显示结果时出错:', error);
         showError('解析结果时出错');
-        
+
         // 显示错误信息
         document.getElementById('jsonResult').textContent = JSON.stringify({
             error: error.message || '解析结果时出错'
@@ -651,14 +651,14 @@ function resetAnalysis() {
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM加載完成，開始初始化...');
-    
+
     // 检查关键DOM元素
     console.log('檢查DOM元素:');
     console.log('createTokenBtn:', document.getElementById('createTokenBtn'));
     console.log('centerIdInput:', document.getElementById('centerIdInput'));
     console.log('customTokenInput:', document.getElementById('customTokenInput'));
     console.log('useTimesInput:', document.getElementById('useTimesInput'));
-    
+
     initApp();
 
     // 预先填充一个令牌便于测试
