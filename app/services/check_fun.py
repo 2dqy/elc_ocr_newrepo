@@ -28,17 +28,17 @@ def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usag
                     "meta": "error",
                     "data": {
                         "brand": "",
-                        "measure_date": current_date or "",
+                        "measure_date": "",
                         "measure_time": "",
                         "category": "",
                         "blood_presure": {
-                            "systolic": "",
-                            "diastolic": "",
-                            "pulse": ""
+                            "sys": "",
+                            "dias": "",
+                            "pul": ""
                         },
                         "blood_sugar": "",
                         "other_value": other_value,
-                        "suggest": "圖片中包含錯誤代碼，請檢查設備或重新測量。",
+                        "suggest": "圖片中不包含血壓計或糖尿計的信息。",
                         "analyze_reliability": 0,
                         "status": "error",
                         "source_ip": client_ip or "",
@@ -102,17 +102,17 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
                         "meta": "error",
                         "data": {
                             "brand": "",
-                            "measure_date": current_date or "",
+                            "measure_date": "",
                             "measure_time": "",
-                            "category": "blood_pressure",
+                            "category": "",
                             "blood_presure": {
-                                "systolic": bp_data.get("sys", ""),
-                                "diastolic": bp_data.get("dia", ""),
-                                "pulse": bp_data.get("pul", "")
+                                "sys": "",
+                                "dias": "",
+                                "pul": ""
                             },
                             "blood_sugar": "",
                             "other_value": "",
-                            "suggest": "圖像有錯誤或不清晰，請重新測量或檢查設備。",
+                            "suggest": "圖片中不包含血壓計或糖尿計的信息。",
                             "analyze_reliability": 0,
                             "status": "error",
                             "source_ip": client_ip or "",
@@ -172,17 +172,17 @@ def check_blood_pressure_fake_data(ocr_dict, current_date=None, client_ip=None, 
                         "meta": "error",
                         "data": {
                             "brand": "",
-                            "measure_date": current_date or "",
+                            "measure_date": "",
                             "measure_time": "",
-                            "category": "blood_pressure",
+                            "category": "",
                             "blood_presure": {
-                                "systolic": bp_data.get("sys", ""),
-                                "diastolic": bp_data.get("dia", ""),
-                                "pulse": bp_data.get("pul", "")
+                                "sys": "",
+                                "dias": "",
+                                "pul": ""
                             },
                             "blood_sugar": "",
                             "other_value": "",
-                            "suggest": "圖像有問題或非真實圖像，請使用真實的醫療設備圖像。",
+                            "suggest": "圖片中不包含血壓計或糖尿計的信息。",
                             "analyze_reliability": 0,
                             "status": "error",
                             "source_ip": client_ip or "",
