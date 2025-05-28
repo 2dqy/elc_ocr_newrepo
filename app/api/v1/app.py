@@ -42,20 +42,41 @@ db = Database()
 @router.post("/image")
 async def upload_image(
         request: Request,
-        file: UploadFile = File(...),
-        token: str = Form(...)
+        image: UploadFile = File(...),
+        token: str = None
 ):
     """
     上传并分析单张医疗图像
-    
+
     参数:
         file: 上传的图像文件
-        token: 验证令牌
+        token: 验证令牌（通过URL参数传递）
     返回:
         图像分析结果的JSON响应
     """
+    # 从URL参数获取token
+    if not token:
+        token = request.query_params.get('token')
+
+    if not token:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "errors": [{
+                    "message": "token不存在",
+                    "extensions": {
+                        "code": "MISSING_TOKEN"
+                    }
+                }]
+            }
+        )
+
     # 开始计时
     start_time = time.time()
+
+    file = image
+    # 获取当前日期
+    current_date = datetime.now().strftime("%Y-%m-%d")
 
     # 检查token是否有效
     try:
@@ -66,10 +87,6 @@ async def upload_image(
             status_code=e.status_code,
             content=e.detail
         )
-
-    # 获取当前日期
-    current_date = datetime.now().strftime("%Y-%m-%d")
-
 
     # 获取客户端IP地址
     client_ip = request.client.host if request.client else "unknown"
