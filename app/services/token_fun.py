@@ -84,3 +84,22 @@ def get_ip_prefix(ip: str) -> str:
     if len(parts) != 4:
         return ""
     return ".".join(parts[:3])
+
+
+def get_token_use_times(token: str) -> int:
+    """获取token的当前使用次数"""
+    try:
+        # 使用Database类连接MySQL
+        db = Database()
+
+        # 查询token的使用次数
+        db.cursor.execute("SELECT use_times FROM tokens WHERE token=%s", (token,))
+        result = db.cursor.fetchone()
+
+        if result:
+            return result[0]
+        else:
+            return 0
+    except Exception as e:
+        print(f"获取Token使用次数错误: {str(e)}")
+        return 0

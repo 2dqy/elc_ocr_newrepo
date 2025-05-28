@@ -199,3 +199,113 @@ class IPRepository:
                 return [row['ip'] for row in results]
         except pymysql.OperationalError:
             return []
+
+class APILogRepository:
+    """API日志相关的数据库操作类"""
+    
+    @staticmethod
+    def log_api_request(
+        client_ip: str,
+        token: str,
+        api_endpoint: str,
+        status: str,
+        file_upload_id: Optional[str] = None,
+        file_name: Optional[str] = None,
+        file_size: Optional[int] = None,
+        ai_usage: Optional[int] = None,
+        error_message: Optional[str] = None,
+        error_code: Optional[str] = None,
+        token_usetimes: Optional[int] = None,
+        center_id: Optional[str] = None
+    ) -> int:
+        """
+        记录API请求日志
+        
+        Args:
+            client_ip: 客户端IP地址
+            token: 使用的token
+            api_endpoint: API端点
+            status: 请求状态 ('success', 'failed', 'not_relevant', 'error')
+            file_upload_id: 文件上传ID（可选）
+            file_name: 文件名（可选）
+            file_size: 文件大小（可选）
+            ai_usage: AI使用量（可选）
+            error_message: 错误消息（可选）
+            error_code: 错误代码（可选）
+            token_usetimes: token使用次数（可选）
+            center_id: 中心ID（可选）
+            
+        Returns:
+            新创建的日志记录ID
+        """
+        try:
+            with db_session.get_cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO api_logs (
+                        client_ip, token, api_endpoint, file_upload_id, 
+                        file_name, file_size, ai_usage, status, 
+                        error_message, error_code, token_usetimes, center_id
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    client_ip, token, api_endpoint, file_upload_id,
+                    file_name, file_size, ai_usage, status,
+                    error_message, error_code, token_usetimes, center_id
+                ))
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"记录API日志失败: {str(e)}")
+            return 0
+    
+    @staticmethod
+    def get_api_logs(
+        limit: int = 100,
+        token: Optional[str] = None,
+        api_endpoint: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        获取API日志记录
+        
+        Args:
+            limit: 返回记录数限制
+            token: 按token过滤（可选）
+            api_endpoint: 按API端点过滤（可选）
+            status: 按状态过滤（可选）
+            
+        Returns:
+            日志记录列表
+        """
+        try:
+            with db_session.get_cursor() as cursor:
+                where_conditions = []
+                params = []
+                
+                if token:
+                    where_conditions.append("token = %s")
+                    params.append(token)
+                
+                if api_endpoint:
+                    where_conditions.append("api_endpoint = %s")
+                    params.append(api_endpoint)
+                
+                if status:
+                    where_conditions.append("status = %s")
+                    params.append(status)
+                
+                where_clause = ""
+                if where_conditions:
+                    where_clause = "WHERE " + " AND ".join(where_conditions)
+                
+                params.append(limit)
+                
+                cursor.execute(f"""
+                    SELECT * FROM api_logs 
+                    {where_clause}
+                    ORDER BY timestamp DESC 
+                    LIMIT %s
+                """, params)
+                
+                return cursor.fetchall()
+        except Exception as e:
+            print(f"获取API日志失败: {str(e)}")
+            return []

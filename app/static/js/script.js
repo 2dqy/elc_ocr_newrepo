@@ -542,10 +542,19 @@ function uploadImage() {
         return;
     }
 
+    // 记录开始时间
+    const startTime = Date.now();
+
     // 显示结果区域和加载动画
     resultSection.style.display = 'block';
     loader.style.display = 'flex';
     resultContent.style.display = 'none';
+    
+    // 隐藏耗时显示
+    const executionTimeDiv = document.getElementById('executionTime');
+    if (executionTimeDiv) {
+        executionTimeDiv.style.display = 'none';
+    }
 
     // 滚动到结果区域
     resultSection.scrollIntoView({ behavior: 'smooth' });
@@ -581,9 +590,21 @@ function uploadImage() {
     .then(data => {
         console.log('接收到响应数据:', data);
 
+        // 计算耗时
+        const endTime = Date.now();
+        const executionTime = ((endTime - startTime) / 1000).toFixed(2);
+
         // 隐藏加载动画，显示结果内容
         loader.style.display = 'none';
         resultContent.style.display = 'block';
+
+        // 显示耗时
+        const executionTimeDiv = document.getElementById('executionTime');
+        const timeValueSpan = document.getElementById('timeValue');
+        if (executionTimeDiv && timeValueSpan) {
+            timeValueSpan.textContent = executionTime;
+            executionTimeDiv.style.display = 'flex';
+        }
 
         // 直接显示完整的响应数据（成功或错误）
         displayResults(data);
@@ -591,9 +612,21 @@ function uploadImage() {
     .catch(error => {
         console.error('网络或解析错误:', error);
 
+        // 计算耗时（即使出错也显示）
+        const endTime = Date.now();
+        const executionTime = ((endTime - startTime) / 1000).toFixed(2);
+
         // 隐藏加载动画，显示结果内容
         loader.style.display = 'none';
         resultContent.style.display = 'block';
+
+        // 显示耗时
+        const executionTimeDiv = document.getElementById('executionTime');
+        const timeValueSpan = document.getElementById('timeValue');
+        if (executionTimeDiv && timeValueSpan) {
+            timeValueSpan.textContent = executionTime;
+            executionTimeDiv.style.display = 'flex';
+        }
 
         // 显示网络错误
         const errorData = {
@@ -645,6 +678,13 @@ function showError(message) {
  */
 function resetAnalysis() {
     resultSection.style.display = 'none';
+    
+    // 隐藏耗时显示
+    const executionTimeDiv = document.getElementById('executionTime');
+    if (executionTimeDiv) {
+        executionTimeDiv.style.display = 'none';
+    }
+    
     resetImageSelection();
     dropZone.scrollIntoView({ behavior: 'smooth' });
 }

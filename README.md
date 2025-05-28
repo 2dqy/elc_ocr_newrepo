@@ -294,3 +294,39 @@ uvicorn app.main:app --reload
 - **图像处理**: PIL/Pillow
 - **API框架**: FastAPI
 - **数据验证**: 多层验证机制
+
+#### 📊 API日志记录完整性检查报告
+✅ /upload/image 接口日志记录情况：
+1. token缺失 - ✅ 已记录
+2. token验证失败 - ✅ 已记录
+3. 文件格式错误 - ✅ 已记录
+4. 文件大小超限 - ✅ 已记录
+5. 图像不相关 - ✅ 已记录
+6. 血压数据验证失败 - ✅ 已记录
+7. 血压数据疑似编造 - ✅ 已记录
+8. OCR解析失败 - ✅ 已记录
+9. OCR API调用错误 - ✅ 已记录
+10. OCR API调用异常 - ✅ 已记录
+11. 成功处理 - ✅ 已记录
+12. 系统异常 - ✅ 已记录
+#### ✅ /upload/add_token 接口日志记录情况：
+1. center_id缺失 - ✅ 已记录
+2. center_id不存在 - ✅ 已记录
+3. 无法获取客户端IP - ✅ 已记录
+4. IP使用受限 - ✅ 已记录
+5. token格式无效 - ✅ 已记录
+6. token已存在 - ✅ 已记录
+7. 插入token失败 - ✅ 已记录
+8. 成功创建token - ✅ 已记录
+9. 
+#### 📋 日志记录的字段包括：
+● client_ip: 客户端IP地址
+● token: 使用的token
+● api_endpoint: API端点
+● status: 请求状态 ('success', 'failed', 'not_relevant', 'error')
+● file_upload_id: 文件上传ID（仅图像接口）
+● file_name: 文件名（仅图像接口）
+● file_size: 文件大小（仅图像接口）
+● ai_usage: AI使用量（仅图像接口）
+● error_message: 错误消息（失败时）
+● error_code: 错误代码（失败时）
