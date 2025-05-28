@@ -13,14 +13,14 @@ import string
 from app.models.database import Database
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix
 from app.services.image_fun import process_image
-from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, check_blood_pressure_fake_data
+from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, \
+    check_blood_pressure_fake_data
 from app.core.config import settings
 from fastapi import APIRouter
 import logging
 
 # 设置日志级别和格式（只需设置一次，通常放在脚本开头）
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 
 router = APIRouter(prefix="/upload")
 
@@ -269,13 +269,13 @@ async def upload_image(
                         if error_response:
                             return error_response
 
-                        # # 检测是否是ai编造数据或非真实数据
-                        # error_response = check_blood_pressure_fake_data(
-                        #     ocr_dict, current_date, client_ip, ai_usage_value,
-                        #     file_upload_id, file.filename, len(file_content), token
-                        # )
-                        # if error_response:
-                        #     return error_response
+                        # 检测是否是ai编造数据或非真实数据
+                        error_response = check_blood_pressure_fake_data(
+                            ocr_dict, current_date, client_ip, ai_usage_value,
+                            file_upload_id, file.filename, len(file_content), token
+                        )
+                        if error_response:
+                            return error_response
 
                         # 替换日期为当前日期
                         ocr_dict["data"]["measure_date"] = current_date
@@ -307,56 +307,90 @@ async def upload_image(
                             if "blood_pressure" in ocr_dict["data"]:
                                 del ocr_dict["data"]["blood_pressure"]
 
-                    # 补充单位并统一
-                    if "data" in ocr_dict and ocr_dict["data"]:
-                        # 处理血压单位
-                        if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
-                            bp_data = ocr_dict["data"]["blood_pressure"]
-                            # 为血压值添加mmHg单位
-                            if bp_data.get("sys") and bp_data["sys"] != "null":
-                                if not bp_data["sys"].endswith("mmHg"):
-                                    bp_data["sys"] = f"{bp_data['sys']}mmHg"
-                            if bp_data.get("dia") and bp_data["dia"] != "null":
-                                if not bp_data["dia"].endswith("mmHg"):
-                                    bp_data["dia"] = f"{bp_data['dia']}mmHg"
-                            if bp_data.get("pul") and bp_data["pul"] != "null":
-                                if not bp_data["pul"].endswith("bpm"):
-                                    bp_data["pul"] = f"{bp_data['pul']}bpm"
+                    # 规范血压命名systolic，diastolic，pulse
+                    if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
+                        bp_data = ocr_dict["data"]["blood_pressure"]
+                        new_bp_data = {}
+                        
+                        # 处理收缩压 (sys -> systolic)
+                        if "sys" in bp_data and bp_data["sys"]:
+                            sys_value = str(bp_data["sys"]).strip()
+                            # 移除可能的单位
+                            units_to_remove = ["mmHg", "mmhg", "kPa", "kpa", "mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
+                            for unit in units_to_remove:
+                                if unit.lower() in sys_value.lower():
+                                    import re
+                                    sys_value = re.sub(re.escape(unit), '', sys_value, flags=re.IGNORECASE).strip()
+                            try:
+                                new_bp_data["systolic"] = int(float(sys_value))
+                            except (ValueError, TypeError):
+                                new_bp_data["systolic"] = bp_data["sys"]
+                        
+                        # 处理舒张压 (dia -> diastolic)
+                        if "dia" in bp_data and bp_data["dia"]:
+                            dia_value = str(bp_data["dia"]).strip()
+                            # 移除可能的单位
+                            for unit in units_to_remove:
+                                if unit.lower() in dia_value.lower():
+                                    import re
+                                    dia_value = re.sub(re.escape(unit), '', dia_value, flags=re.IGNORECASE).strip()
+                            try:
+                                new_bp_data["diastolic"] = int(float(dia_value))
+                            except (ValueError, TypeError):
+                                new_bp_data["diastolic"] = bp_data["dia"]
+                        
+                        # 处理心率 (pul -> pulse)
+                        if "pul" in bp_data and bp_data["pul"]:
+                            pul_value = str(bp_data["pul"]).strip()
+                            # 移除可能的单位
+                            for unit in units_to_remove:
+                                if unit.lower() in pul_value.lower():
+                                    import re
+                                    pul_value = re.sub(re.escape(unit), '', pul_value, flags=re.IGNORECASE).strip()
+                            try:
+                                new_bp_data["pulse"] = int(float(pul_value))
+                            except (ValueError, TypeError):
+                                new_bp_data["pulse"] = bp_data["pul"]
+                        
+                        # 更新血压数据
+                        ocr_dict["data"]["blood_pressure"] = new_bp_data
+                        print(f"血压数据规范化: {bp_data} -> {new_bp_data}")
 
-                        # 处理血糖单位和转换
-                        if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
-                            bs_value = ocr_dict["data"]["blood_sugar"]
-                            if bs_value and bs_value != "null":
-                                try:
-                                    # 提取数值部分（去除可能的单位）
-                                    value_str = str(bs_value).strip()
-                                    print(f"原始血糖值: '{value_str}'")
-                                    
-                                    # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
-                                    units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg"]
-                                    for unit in units_to_remove:
-                                        if unit.lower() in value_str.lower():
-                                            # 不区分大小写移除单位
-                                            import re
-                                            value_str = re.sub(re.escape(unit), '', value_str, flags=re.IGNORECASE).strip()
-                                            print(f"移除单位 '{unit}' 后: '{value_str}'")
+                    # 处理血糖单位和转换
+                    if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
+                        bs_value = ocr_dict["data"]["blood_sugar"]
+                        if bs_value and bs_value != "null":
+                            try:
+                                # 提取数值部分（去除可能的单位）
+                                value_str = str(bs_value).strip()
+                                print(f"原始血糖值: '{value_str}'")
 
-                                    blood_sugar_value = float(value_str)
-                                    print(f"提取的数值: {blood_sugar_value}")
+                                # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
+                                units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
+                                for unit in units_to_remove:
+                                    if unit.lower() in value_str.lower():
+                                        # 不区分大小写移除单位
+                                        import re
+                                        value_str = re.sub(re.escape(unit), '', value_str,
+                                                           flags=re.IGNORECASE).strip()
+                                        print(f"移除单位 '{unit}' 后: '{value_str}'")
 
-                                    # 如果血糖值大于20，认为是mg/dL单位，需要转换为mmol/L
-                                    if blood_sugar_value > 20:
-                                        blood_sugar_value = blood_sugar_value / 18
-                                        print(f"血糖单位转换: {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+                                blood_sugar_value = float(value_str)
+                                print(f"提取的数值: {blood_sugar_value}")
 
-                                    # 添加mmol/L单位
-                                    ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
+                                # 如果血糖值大于20，认为是mg/dL单位，需要转换为mmol/L
+                                if blood_sugar_value > 20:
+                                    blood_sugar_value = blood_sugar_value / 18
+                                    print(f"血糖单位转换: {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
-                                except (ValueError, TypeError) as e:
-                                    print(f"血糖值转换错误: {bs_value} - {str(e)}")
-                                    # 如果转换失败，直接添加单位
-                                    if not str(bs_value).endswith("mmol/L"):
-                                        ocr_dict["data"]["blood_sugar"] = f"{bs_value}mmol/L"
+                                # 添加mmol/L单位
+                                ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
+
+                            except (ValueError, TypeError) as e:
+                                print(f"血糖值转换错误: {bs_value} - {str(e)}")
+                                # 如果转换失败，直接添加单位
+                                if not str(bs_value).endswith("mmol/L"):
+                                    ocr_dict["data"]["blood_sugar"] = f"{bs_value}mmol/L"
 
                     # 打印最终处理结果
                     print("=== 最终处理结果 ===")
@@ -582,6 +616,4 @@ async def get_config():
         "api_base_url": settings.API_BASE_URL
     }
 
-
 # 原来的健康检查接口改为新的路径
-

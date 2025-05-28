@@ -33,9 +33,9 @@ def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usag
                         "measure_time": "",
                         "category": "",
                         "blood_presure": {
-                            "sys": "",
-                            "dias": "",
-                            "pul": ""
+                            "systolic": "",
+                            "diastolic": "",
+                            "pulse": ""
                         },
                         "blood_sugar": "",
                         "other_value": other_value,
@@ -108,9 +108,9 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
                             "measure_time": "",
                             "category": "",
                             "blood_presure": {
-                                "sys": "",
-                                "dias": "",
-                                "pul": ""
+                                "systolic": "",
+                                "diastolic": "",
+                                "pulse": ""
                             },
                             "blood_sugar": "",
                             "other_value": "",
@@ -179,9 +179,9 @@ def check_blood_pressure_fake_data(ocr_dict, current_date=None, client_ip=None, 
                             "measure_time": "",
                             "category": "",
                             "blood_presure": {
-                                "sys": "",
-                                "dias": "",
-                                "pul": ""
+                                "systolic": "",
+                                "diastolic": "",
+                                "pulse": ""
                             },
                             "blood_sugar": "",
                             "other_value": "",
