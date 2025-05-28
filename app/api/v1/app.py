@@ -219,7 +219,7 @@ async def upload_image(
                     3. 关注信息：
                        - 医疗设备品牌和型号
                        - 测量时间（从图片中提取，格式 HH:mm:ss，如果无法提取则返回 null）
-                       - 测量数值
+                       - 测量数值            
                     
                     请按照以下JSON格式返回数据：
                     "data": {
@@ -253,7 +253,7 @@ async def upload_image(
             # 调用DashScope API，使用环境变量中的API密钥
             response = dashscope.MultiModalConversation.call(
                 api_key=DASHSCOPE_API_KEY,
-                model='qwen-vl-ocr-latest',
+                model='qwen-vl-ocr-0413',
                 messages=messages,
                 temperature=0.2,
             )
@@ -476,11 +476,20 @@ async def upload_image(
                     # 处理血糖单位和转换
                     if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
                         bs_value = ocr_dict["data"]["blood_sugar"]
+                        other_value = ocr_dict["data"].get("other_value", "")
+                        
                         if bs_value and bs_value != "null":
                             try:
                                 # 提取数值部分（去除可能的单位）
                                 value_str = str(bs_value).strip()
                                 print(f"原始血糖值: '{value_str}'")
+                                print(f"other_value: '{other_value}'")
+
+                                # 检查是否包含mg单位（从blood_sugar或other_value中）
+                                has_mg_unit = False
+                                if "mg" in value_str.lower() or (other_value and "mg" in str(other_value).lower()):
+                                    has_mg_unit = True
+                                    print(f"检测到mg单位")
 
                                 # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
                                 units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
@@ -495,10 +504,15 @@ async def upload_image(
                                 blood_sugar_value = float(value_str)
                                 print(f"提取的数值: {blood_sugar_value}")
 
-                                # 如果血糖值大于20，认为是mg/dL单位，需要转换为mmol/L
-                                if blood_sugar_value > 20:
+                                # 根据是否检测到mg单位来决定转换方式
+                                if has_mg_unit:
+                                    # 检测到mg单位，使用标准转换（除以18）
                                     blood_sugar_value = blood_sugar_value / 18
-                                    print(f"血糖单位转换: {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+                                    print(f"血糖单位转换(mg->mmol/L): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+                                elif blood_sugar_value > 10:
+                                    # 默认情况：数值大于20，除以10
+                                    blood_sugar_value = blood_sugar_value / 10
+                                    print(f"血糖数值转换(>20除以10): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
                                 # 添加mmol/L单位
                                 ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"

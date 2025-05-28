@@ -24,22 +24,22 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
         img = img.convert("RGB")
 
     # 计算当前图像的像素总数
-    width, height = img.size
-    total_pixels = width * height
+    # width, height = img.size
+    # total_pixels = width * height
 
-    # 调整图像大小以符合像素要求
-    if total_pixels < MIN_PIXELS:
-        # 放大图像
-        scale_factor = (MIN_PIXELS / total_pixels) ** 0.5
-        new_width = int(width * scale_factor)
-        new_height = int(height * scale_factor)
-        img = img.resize((new_width, new_height), Image.BICUBIC)
-    elif total_pixels > MAX_PIXELS:
-        # 缩小图像
-        scale_factor = (MAX_PIXELS / total_pixels) ** 0.5
-        new_width = int(width * scale_factor)
-        new_height = int(height * scale_factor)
-        img = img.resize((new_width, new_height), Image.LANCZOS)
+    # # 调整图像大小以符合像素要求
+    # if total_pixels < MIN_PIXELS:
+    #     # 放大图像
+    #     scale_factor = (MIN_PIXELS / total_pixels) ** 0.5
+    #     new_width = int(width * scale_factor)
+    #     new_height = int(height * scale_factor)
+    #     img = img.resize((new_width, new_height), Image.BICUBIC)
+    # elif total_pixels > MAX_PIXELS:
+    #     # 缩小图像
+    #     scale_factor = (MAX_PIXELS / total_pixels) ** 0.5
+    #     new_width = int(width * scale_factor)
+    #     new_height = int(height * scale_factor)
+    #     img = img.resize((new_width, new_height), Image.LANCZOS)
 
     # # 增强亮度 - 提高20%
     # enhancer = ImageEnhance.Brightness(img)
