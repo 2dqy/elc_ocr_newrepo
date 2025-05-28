@@ -550,13 +550,16 @@ function uploadImage() {
     // 滚动到结果区域
     resultSection.scrollIntoView({ behavior: 'smooth' });
 
-    // 准备表单数据
+        // 准备表单数据（只包含文件）
     const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('token', tokenInput.value.trim());
+    formData.append('image', selectedFile);
 
-    // 修改请求URL
-    fetch(`${API_BASE_URL}/upload/image`, {
+    // 将token作为URL参数
+    const token = encodeURIComponent(tokenInput.value.trim());
+    const url = `${API_BASE_URL}/upload/image?token=${token}`;
+
+    // 发送请求
+    fetch(url, {
         method: 'POST',
         body: formData,
     })
