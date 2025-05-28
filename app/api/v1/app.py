@@ -253,13 +253,13 @@ async def upload_image(
                         total_tokens = usage_info.get("total_tokens", 0)
                         ai_usage_value = total_tokens * 10
 
-                        # 检查other_value字段是否包含错误代码（E或e）
-                        error_response = check_other_value_error(
-                            ocr_dict, current_date, client_ip, ai_usage_value,
-                            file_upload_id, file.filename, len(file_content), token
-                        )
-                        if error_response:
-                            return error_response
+                        # # 检查other_value字段是否包含错误代码（E或e）
+                        # error_response = check_other_value_error(
+                        #     ocr_dict, current_date, client_ip, ai_usage_value,
+                        #     file_upload_id, file.filename, len(file_content), token
+                        # )
+                        # if error_response:
+                        #     return error_response
 
                         # 检查血压数据有效性
                         error_response = check_blood_pressure_validity(
