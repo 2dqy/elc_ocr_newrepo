@@ -57,7 +57,7 @@ def check_other_value_error(ocr_dict, current_date=None, client_ip=None, ai_usag
 def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, ai_usage_value=0, file_upload_id=None,
                                   file_name=None, file_size=0, token=None):
     """
-    检查血压数据是否有效（null值或0开头的值）
+    检查血压和血糖数据是否有效
 
     参数:
         ocr_dict: OCR识别结果字典
@@ -69,17 +69,59 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
         file_size: 文件大小
         token: 令牌
     返回:
-        如果血压数据无效返回JSONResponse错误响应，否则返回None
+        如果数据无效返回JSONResponse错误响应，否则返回None
     """
     if "data" in ocr_dict and ocr_dict["data"]:
+        # 检查血糖数据
+        if "category" in ocr_dict["data"] and ocr_dict["data"]["category"] == "blood_sugar":
+            if "blood_sugar" in ocr_dict["data"]:
+                blood_sugar = ocr_dict["data"]["blood_sugar"]
+                
+                # 检查血糖值是否为空、null或包含错误代码E/e
+                if (not blood_sugar or 
+                    blood_sugar == "null" or 
+                    blood_sugar == "" or
+                    ('E' in str(blood_sugar) or 'e' in str(blood_sugar))):
+                    
+                    print(f"血糖数据无效: blood_sugar={blood_sugar}")
+                    
+                    response_data = {
+                        "meta": "error",
+                        "data": {
+                            "brand": "",
+                            "measure_date": "",
+                            "measure_time": "",
+                            "category": "",
+                            "blood_presure": {
+                                "systolic": "",
+                                "diastolic": "",
+                                "pulse": ""
+                            },
+                            "blood_sugar": "",
+                            "other_value": "",
+                            "suggest": "圖片中不包含血壓計或糖尿計的信息。",
+                            "analyze_reliability": 0,
+                            "status": "error",
+                            "source_ip": client_ip or "",
+                            "ai_usage": ai_usage_value,
+                            "file_upload_id": file_upload_id or "",
+                            "file_name": file_name or "",
+                            "file_size": file_size,
+                            "token": token or ""
+                        }
+                    }
+                    return JSONResponse(content=response_data)
+
+        # 检查血压数据
         if "category" in ocr_dict["data"] and ocr_dict["data"]["category"] == "blood_pressure":
             if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
                 bp_data = ocr_dict["data"]["blood_pressure"]
 
                 def is_invalid_value(value):
                     """检查值是否无效（null、空、或以0开头）"""
-                    if not value or value == "null":
+                    if not value or value == "null" or value == "" or ('E' in str(value) or 'e' in str(value)):
                         return True
+
                     # 提取数字部分检查是否以0开头
                     # 提取开头的数字部分
                     match = re.match(r'^(\d+)', str(value).strip())

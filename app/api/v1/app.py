@@ -286,7 +286,7 @@ async def upload_image(
                 
                 print(f"AI Usage计算: total_tokens={total_tokens}, ai_usage_value={ai_usage_value}")
                 
-                # 检查血压数据有效性
+                # 检查数据有效性
                 error_response = check_blood_pressure_validity(
                     ocr_dict, current_date, client_ip, ai_usage_value,
                     file_upload_id, file.filename, len(file_content), token
@@ -306,7 +306,7 @@ async def upload_image(
                             file_name=file.filename,
                             file_size=len(file_content),
                             ai_usage=ai_usage_value,
-                            error_message="血压数据验证失败",
+                            error_message="数据验证失败",
                             error_code="BLOOD_PRESSURE_INVALID",
                             token_usetimes=current_use_times
                         )
@@ -476,8 +476,12 @@ async def upload_image(
             }
 
             # 如果OCR识别成功，更新token使用次数
-            if ocr_dict.get("status") == "success" or ocr_dict["data"].get("status") == "completed":
+            if (ocr_dict.get("data") and 
+                ocr_dict["data"].get("category") not in ["Not relevant", "error", None]):
                 update_token_usage(token)
+                print(f"Token使用次数已更新: {token}")
+            else:
+                print(f"Token使用次数未更新，条件不满足: category={ocr_dict.get('data', {}).get('category')}")
                 
             # 记录API日志 - 成功情况
             try:
