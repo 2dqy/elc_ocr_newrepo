@@ -461,4 +461,102 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-这将输出详细的调试信息，帮助定位问题。 
+# OpenAI 结构化输出实现
+
+## 概述
+
+本项目已将 OpenAI 模型从基于提示词的 JSON 输出转换为使用 OpenAI 的结构化输出功能。这种方法提供了更可靠和一致的数据提取。
+
+## 主要变更
+
+### 1. Pydantic 模型定义
+
+在 `app/services/model_fun.py` 中添加了以下 Pydantic 模型：
+
+```python
+class BloodPressureData(BaseModel):
+    sys: Optional[int] = None
+    dia: Optional[int] = None
+    pul: Optional[int] = None
+
+class OCRData(BaseModel):
+    brand: Optional[str] = None
+    measure_date: Optional[str] = None
+    measure_time: Optional[str] = None
+    category: str  # "blood_pressure", "blood_sugar", "Not relevant", "error"
+    blood_pressure: Optional[BloodPressureData] = None
+    blood_sugar: Optional[str] = None
+    other_value: Optional[str] = None
+    suggest: Optional[str] = None
+    analyze_reliability: Optional[float] = None
+    status: Optional[str] = None
+
+class OCRResponse(BaseModel):
+    data: OCRData
+```
+
+### 2. API 调用更新
+
+OpenAI 模型现在使用 `client.beta.chat.completions.parse()` 而不是 `client.chat.completions.create()`：
+
+```python
+response = self.client.beta.chat.completions.parse(
+    model=self.deployment,
+    messages=[...],
+    response_format=OCRResponse,
+    max_tokens=500,
+)
+```
+
+### 3. 简化的提示词
+
+由于使用了结构化输出，提示词不再需要指定 JSON 格式，而是专注于分析指令：
+
+- 移除了 JSON 格式说明
+- 简化了输出要求
+- 保留了核心分析逻辑
+
+### 4. 响应处理
+
+`extract_result` 方法现在首先尝试从 `response.choices[0].message.parsed` 获取结构化数据，如果失败则回退到原有的 JSON 解析方法。
+
+## 优势
+
+1. **类型安全**: Pydantic 模型提供了类型验证和自动转换
+2. **一致性**: 结构化输出确保响应格式的一致性
+3. **错误处理**: 更好的错误处理和验证
+4. **维护性**: 代码更易于维护和扩展
+5. **可靠性**: 减少了 JSON 解析错误的可能性
+
+## 兼容性
+
+- 保持与现有 Qwen 模型的完全兼容性
+- 现有的数据处理逻辑无需更改
+- API 响应格式保持不变
+
+## 测试
+
+使用 `test_structured_output.py` 脚本可以测试新的结构化输出功能：
+
+```bash
+python test_structured_output.py
+```
+
+## 注意事项
+
+1. 需要 OpenAI Python 库版本 >= 1.82.0
+2. 结构化输出功能目前在 beta 阶段
+3. 如果结构化解析失败，系统会自动回退到传统的 JSON 解析方法
+
+## 环境变量
+
+确保在 `.env` 文件中正确配置：
+
+```
+MODEL_TYPE=openai  # 使用 OpenAI 模型
+AZURE_OPENAI_ENDPOINT=your_endpoint
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_API_VERSION=your_api_version
+AZURE_OPENAI_DEPLOYMENT=your_deployment_name
+AZURE_OPENAI_MODEL=your_model_name
+``` 

@@ -7,10 +7,35 @@ import io
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional, List
 from PIL import Image, ExifTags
 import dashscope
 from openai import AzureOpenAI
+from pydantic import BaseModel
+
+
+# Pydantic models for structured output
+class BloodPressureData(BaseModel):
+    sys: Optional[int] = None
+    dia: Optional[int] = None
+    pul: Optional[int] = None
+
+
+class OCRData(BaseModel):
+    brand: Optional[str] = None
+    measure_date: Optional[str] = None
+    measure_time: Optional[str] = None
+    category: str  # "blood_pressure", "blood_sugar", "Not relevant", "error"
+    blood_pressure: Optional[BloodPressureData] = None
+    blood_sugar: Optional[str] = None
+    other_value: Optional[str] = None
+    suggest: Optional[str] = None
+    analyze_reliability: Optional[float] = None
+    status: Optional[str] = None
+
+
+class OCRResponse(BaseModel):
+    data: OCRData
 
 
 class BaseOCRModel(ABC):
@@ -176,9 +201,14 @@ class OpenAIOCRModel(BaseOCRModel):
             compressed_image = self._compress_image(image_content, filename)
             image_data_uri = f"data:image/jpeg;base64,{compressed_image}"
             
-            response = self.client.chat.completions.create(
+            # 使用结构化输出
+            response = self.client.beta.chat.completions.parse(
                 model=self.deployment,
                 messages=[
+                    {
+                        "role": "system", 
+                        "content": "你是一个专业的医疗设备图像分析助手。请仔细分析上传的图像并提取相关信息。"
+                    },
                     {
                         "role": "user",
                         "content": [
@@ -190,6 +220,7 @@ class OpenAIOCRModel(BaseOCRModel):
                         ],
                     }
                 ],
+                response_format=OCRResponse,
                 max_tokens=500,
             )
             
@@ -212,14 +243,21 @@ class OpenAIOCRModel(BaseOCRModel):
     def extract_result(self, response: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """从OpenAI API响应中提取结果"""
         try:
-            content = response.choices[0].message.content
-            json_match = re.search(r"\{.*\}", content, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                # OpenAI返回的结果已经包含data字段，直接返回
-                return result, {}
+            # 从结构化输出中提取数据
+            parsed_response = response.choices[0].message.parsed
+            if parsed_response:
+                # 将Pydantic模型转换为字典
+                result_dict = parsed_response.model_dump()
+                return result_dict, {}
             else:
-                return {"error": "未找到有效的 JSON 回應"}, {}
+                # 如果解析失败，尝试从content中提取
+                content = response.choices[0].message.content
+                json_match = re.search(r"\{.*\}", content, re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group())
+                    return result, {}
+                else:
+                    return {"error": "未找到有效的响应数据"}, {}
         except Exception as e:
             return {"error": f"OpenAI结果解析失败: {str(e)}"}, {}
     
@@ -277,86 +315,29 @@ class OpenAIOCRModel(BaseOCRModel):
     
     def _get_openai_prompt(self) -> str:
         """获取OpenAI模型的提示词"""
-        return """​1. 圖片相關性判斷​
-​判斷條件​：
-影像是否包含血壓計或血糖儀的顯示器或資料。
-若為無關內容（如風景、人物照等），回傳以下 JSON 並終止後續步驟：
-json
-复制
-{
-  "data": {
-    "category": "Not relevant"
-  }
-}
-​2. 錯誤狀態檢查​
-​規則​：
-嚴禁推測或填寫預設值，僅能根據圖片內容回傳。
-若圖片顯示錯誤訊息（如 E1、Err、Error），回傳以下 JSON：
-json
-复制
-{
-  "data": {
-    "category": "error",
-    "error_message": "識別到的錯誤訊息（如 E1、Err 或無法識別）",
-    "brand": null,
-    "measure_date": null,
-    "measure_time": null,
-    "blood_pressure": {
-      "sys": null,
-      "dia": null,
-      "pul": null
-    },
-    "blood_sugar": null,
-    "other_value": null,
-    "suggest": "設備顯示錯誤訊息，請檢查設備是否正確操作或重新測量。",
-    "analyze_reliability": 0.0,
-    "status": "error_detected"
-  }
-}
-​3. 設備類型與數據提取​
-​嚴格要求​：
-所有欄位必須基於圖片內容，無法識別時設為 null。
-​血糖儀​：僅填寫 blood_sugar 值，其餘血壓欄位設為 null。
-​血壓計​：填寫 sys（收縮壓）、dia（舒張壓）、pul（心率），血糖欄位設為 null。
-​4. 關注訊息​
-​填寫規則​：
-​品牌/型號​：僅限圖片中可見的資訊。
-​測量時間​：格式為 HH:mm:ss，若無則設為 null。
-​健康建議​：需根據實際提取的數值提供專業建議，若數值無效則建議重新測量。
-​5. 最終回傳格式​
-json
-复制
-{
-  "data": {
-    "brand": "設備品牌（或 null）",
-    "measure_date": "當前日期（或 null）",
-    "measure_time": "圖片中的測量時間（或 null）",
-    "category": "blood_pressure 或 blood_sugar",
-    "blood_pressure": {
-      "sys": "收縮壓值（或 null）",
-      "dia": "舒張壓值（或 null）",
-      "pul": "心率值（或 null）"
-    },
-    "blood_sugar": "血糖值（或 null）",
-    "other_value": "其他資料（或 null）",
-    "suggest": "基於數據的 AI 健康建議",
-    "analyze_reliability": "分析可信度（0.0~1.0）",
-    "status": "分析狀態（如 'completed'、'failed'）"
-  }
-}
-​注意事項​
-​嚴禁推測​：所有欄位僅能根據圖片內容填寫，否則設為 null。
-​數據隔離​：
-血壓數據時，blood_sugar 必須為 null。
-血糖數據時，blood_pressure 所有欄位必須為 null。
-​時間格式​：僅接受從圖片提取的 HH:mm:ss，否則為 null。
-​錯誤優先​：若檢測到錯誤，直接回傳錯誤格式（步驟 2）。
-​語言與格式​：
-僅使用繁體中文。
-嚴格遵守 JSON 格式，不得新增或缺少欄位。
-- 如果一個大數字看起來明顯不合常理（如 179 mmol/L），請判斷是否可能是 17.9。
-- 嘗試根據格式規律（血糖值通常介於 2.0 到 20.0）來做小數推論。
-        """
+        return """请仔细分析上传的图像，执行以下步骤：
+
+1. 图片相关性判断：
+   - 判断图像是否包含血压计或血糖仪的显示屏或数据
+   - 如果图像不包含相关内容，设置category为"Not relevant"
+
+2. 设备类型判断：
+   - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
+   - 血糖仪数据：血糖值
+
+3. 数据提取要求：
+   - 医疗设备品牌和型号
+   - 测量时间（从图片中提取，格式HH:mm:ss，无法提取则为null）
+   - 测量数值（确保准确，不要编造数据）
+
+4. 注意事项：
+   - 如果是血压数据，blood_sugar字段设为null
+   - 如果是血糖数据，blood_pressure对象的所有字段设为null
+   - 时间必须从图片中提取，无法提取则返回null
+   - 根据数值给出专业的健康建议
+   - 如果图片不包含血压计或血糖仪数据，设置category为"error"
+   - 如果一個大數字看起來明顯不合常理（如 13-200 mmol/L），請判斷是否可能如1.x,2.x,3.x,4.x,5.x,6.x,7.x,8.x,9.x,10.x,11.x
+   - 血糖值通常在2.0到20.0之间，据此推断小数点位置"""
 
 
 class OCRModelFactory:

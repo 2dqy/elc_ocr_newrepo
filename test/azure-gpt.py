@@ -260,3 +260,15 @@ async def read_root():
         # 如果文件不存在，返回templates中的index.html
         file_path = Path(__file__).resolve().parent.parent.parent / "templates" / "index.html"
         return FileResponse(file_path)
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",  # 修改为正确的应用路径
+        host="127.0.0.1",
+        port=5000,
+        reload=True
+    )
+
