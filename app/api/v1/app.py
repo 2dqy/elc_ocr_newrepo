@@ -13,9 +13,10 @@ import string
 from app.models.database import Database
 from app.models.database import APILogRepository
 from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix, get_token_use_times
-from app.services.image_fun import process_image
+from app.services.image_fun import process_image,correct_image_orientation
 from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, \
     check_blood_pressure_fake_data
+from app.services.model_fun import get_ocr_model
 from app.core.config import settings
 from fastapi import APIRouter
 import logging
@@ -185,398 +186,113 @@ async def upload_image(
             }
         )
     try:
-        # 处理图像
-        processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
-
-        # 图像的base64编码（用于API调用）
-        image_base64 = base64.b64encode(processed_image).decode("utf-8")
+        # 获取OCR模型实例（根据环境变量MODEL_TYPE选择模型）
+        ocr_model = get_ocr_model()
+        
+        # 根据模型类型处理图像
+        model_type = os.getenv("MODEL_TYPE", "qwen").lower()
+        if model_type == "qwen":
+            # 千问模型使用处理后的图像
+            processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
+            image_for_analysis = processed_image
+        else:
+            # OpenAI模型使用原始图像（在模型内部进行压缩）
+            image_for_analysis = file_content
 
         try:
-            # 使用DashScope API进行OCR分析
-            messages = [{
-                "role": "user",
-                "content": [{
-                    "image": f"data:image/jpeg;base64,{image_base64}",
-                    "min_pixels": MIN_PIXELS,
-                    "max_pixels": MAX_PIXELS,
-                    "enable_rotate": True
-                },
-                    {
-                        "type": "text",
-                        "text": """请仔细分析上传的图像，执行以下步骤并返回结果：
-
-                    1. 图片相关性判断：
-                       - 首先判断图像是否包含血压计或血糖仪的显示屏或数据。
-                       - 如果图像不包含血压计或血糖仪相关内容（例如，风景照、人物照或其他无关图片），请按照以下JSON格式返回数据：
-                            "data": {
-                                    "category": "Not relevant"，
-                                    }后续提示词可忽略                                 
-
-                    2. 设备类型判断：
-                       - 血压计数据：收缩压(SYS)、舒张压(DIA)、心率(PUL)
-                       - 血糖仪数据：血糖值
-                    
-                    3. 关注信息：
-                       - 医疗设备品牌和型号
-                       - 测量时间（从图片中提取，格式 HH:mm:ss，如果无法提取则返回 null）
-                       - 测量数值            
-                    
-                    请按照以下JSON格式返回数据：
-                    "data": {
-                            "brand": "设备品牌",
-                            "measure_date": "当前日期",
-                            "measure_time": "图片中的测量时间",
-                            "category": "blood_pressure 或 blood_sugar",
-                            "blood_pressure": {
-                                "sys": "收缩压值",
-                                "dia": "舒张压值",
-                                "pul": "心率值"
-                            },
-                            "blood_sugar": "血糖值",
-                            "other_value": "其他数据",
-                            "suggest": "基于数据的 AI 健康建议",
-                            "analyze_reliability": 0.95,
-                            "status": "分析状态（例如 'completed', 'failed'）",
-                            }
-                    注意事项：
-                        1. 如果是血压数据，blood_sugar字段设为null
-                        2. 如果是血糖数据，blood_pressure对象的所有字段设为null
-                        3. 时间必须从图片中提取，如果无法提取则返回null
-                        4. 请根据数值给出专业的健康建议
-                        5. 确保分析准确，不要捏造数据
-                        6. 如果图片不包含血压计或血糖仪数据，设置category 为 "error"，其他值为空。
-
-                    """
-                    }]
-            }]
-
-            # 调用DashScope API，使用环境变量中的API密钥
-            response = dashscope.MultiModalConversation.call(
-                api_key=DASHSCOPE_API_KEY,
-                model='qwen-vl-ocr-0413',
-                messages=messages,
-                temperature=0.2,
-            )
-
-            # 检查API响应状态
-            if response.status_code == 200:
-                # print(response.usage)
-                # print(response.output.choices[0].message.content)
-                # 输出日志
-                logging.info(f"响应内容: {response}")
-
-                # 获取OCR结果并处理格式
-                raw_result = response["output"]["choices"][0]["message"]["content"]
-                # print(raw_result)
-
-                # 处理新的返回格式：列表中包含字典，字典有'text'键
-                if isinstance(raw_result, list) and len(raw_result) > 0 and 'text' in raw_result[0]:
-                    # 提取text内容
-                    text_content = raw_result[0]['text']
-                else:
-                    # 兼容旧格式，直接使用raw_result
-                    text_content = raw_result
-
-                # 移除代码块标记（如 ```json 和 ```）和多余的换行、缩进
-                ocr_result = text_content.replace('```json', '').replace('```', '').strip()
-
-                # 构建完整响应
+            # 使用统一的OCR模型接口进行分析
+            ocr_dict, usage_info = ocr_model.analyze_image(image_for_analysis, file.filename)
+            
+            # 检查是否有错误
+            if "error" in ocr_dict:
+                # 记录API日志 - OCR分析失败
                 try:
-                    # 将字符串转换为字典
-                    import json
-                    ocr_dict = json.loads(ocr_result)
-                    # print(f"xxx\n{ocr_result}\n")
-
-                    # 确保data字段存在
-                    if "data" not in ocr_dict:
-                        ocr_dict = {"data": ocr_dict}
-
-                    # 检查category字段是否为"Not relevant"
-                    if ocr_dict["data"] and ocr_dict["data"].get("category") == "Not relevant":
-                        # 记录API日志 - 图像不相关
-                        try:
-                            # 计算AI使用情况
-                            usage_info = response.usage
-                            total_tokens = usage_info.get("total_tokens", 0)
-                            ai_usage_value = total_tokens * 10
-                            
-                            # 获取token当前使用次数
-                            current_use_times = get_token_use_times(token)
-                            
-                            APILogRepository.log_api_request(
-                                client_ip=client_ip,
-                                token=token,
-                                api_endpoint="/upload/image",
-                                status="not_relevant",
-                                file_upload_id=file_upload_id,
-                                file_name=file.filename,
-                                file_size=len(file_content),
-                                ai_usage=ai_usage_value,
-                                error_message="图像不相关",
-                                error_code="IMG__ERROR",
-                                token_usetimes=current_use_times
-                            )
-                        except Exception as log_error:
-                            print(f"记录API日志失败: {str(log_error)}")
-                            
-                        response_data = {
-                            "errors": [
-                                {
-                                    "message": f"图像不相关",
-                                    "extensions": {
-                                        "code": "IMG__ERROR"
-                                    }
-                                }
-                            ]
-                        }
-                        return JSONResponse(content=response_data)
-
-                    # 添加后端获取的参数到data中
-                    if ocr_dict["data"]:
-                        # 计算AI使用情况
-                        usage_info = response.usage
-                        total_tokens = usage_info.get("total_tokens", 0)
-                        ai_usage_value = total_tokens * 10
-
-                        # 检查血压数据有效性
-                        error_response = check_blood_pressure_validity(
-                            ocr_dict, current_date, client_ip, ai_usage_value,
-                            file_upload_id, file.filename, len(file_content), token
-                        )
-                        if error_response:
-                            # 记录API日志 - 血压数据验证失败
-                            try:
-                                # 获取token当前使用次数
-                                current_use_times = get_token_use_times(token)
-                                
-                                APILogRepository.log_api_request(
-                                    client_ip=client_ip,
-                                    token=token,
-                                    api_endpoint="/upload/image",
-                                    status="failed",
-                                    file_upload_id=file_upload_id,
-                                    file_name=file.filename,
-                                    file_size=len(file_content),
-                                    ai_usage=ai_usage_value,
-                                    error_message="血压数据验证失败",
-                                    error_code="BLOOD_PRESSURE_INVALID",
-                                    token_usetimes=current_use_times
-                                )
-                            except Exception as log_error:
-                                print(f"记录API日志失败: {str(log_error)}")
-                            return error_response
-
-                        # 检测是否是ai编造数据或非真实数据
-                        error_response = check_blood_pressure_fake_data(
-                            ocr_dict, current_date, client_ip, ai_usage_value,
-                            file_upload_id, file.filename, len(file_content), token
-                        )
-                        if error_response:
-                            # 记录API日志 - 血压数据疑似编造
-                            try:
-                                # 获取token当前使用次数
-                                current_use_times = get_token_use_times(token)
-                                
-                                APILogRepository.log_api_request(
-                                    client_ip=client_ip,
-                                    token=token,
-                                    api_endpoint="/upload/image",
-                                    status="failed",
-                                    file_upload_id=file_upload_id,
-                                    file_name=file.filename,
-                                    file_size=len(file_content),
-                                    ai_usage=ai_usage_value,
-                                    error_message="血压数据疑似编造",
-                                    error_code="BLOOD_PRESSURE_FAKE",
-                                    token_usetimes=current_use_times
-                                )
-                            except Exception as log_error:
-                                print(f"记录API日志失败: {str(log_error)}")
-                            return error_response
-
-                        # 替换日期为当前日期
-                        ocr_dict["data"]["measure_date"] = current_date
-
-                        # 添加后端参数
-                        ocr_dict["data"]["source_ip"] = client_ip
-
-                        # 计算AI使用情况
-                        usage_info = response.usage
-                        total_tokens = usage_info.get("total_tokens", 0)
-                        ai_usage_value = total_tokens * 10
-                        ocr_dict["data"]["ai_usage"] = ai_usage_value
-
-                        # 添加文件相关信息
-                        ocr_dict["data"]["file_upload_id"] = file_upload_id
-                        ocr_dict["data"]["file_name"] = file.filename
-                        ocr_dict["data"]["file_size"] = len(file_content)
-                        ocr_dict["data"]["token"] = token
-
-                    # 根据category删除不需要的字段
-                    if "data" in ocr_dict and ocr_dict["data"] and "category" in ocr_dict["data"]:
-                        category = ocr_dict["data"]["category"]
-                        if category == "blood_pressure":
-                            # 血压数据，删除blood_sugar字段
-                            if "blood_sugar" in ocr_dict["data"]:
-                                del ocr_dict["data"]["blood_sugar"]
-                        elif category == "blood_sugar":
-                            # 血糖数据，删除blood_pressure字段
-                            if "blood_pressure" in ocr_dict["data"]:
-                                del ocr_dict["data"]["blood_pressure"]
-
-                    # 规范血压命名systolic，diastolic，pulse
-                    if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
-                        bp_data = ocr_dict["data"]["blood_pressure"]
-                        new_bp_data = {}
-                        
-                        # 处理收缩压 (sys -> systolic)
-                        if "sys" in bp_data and bp_data["sys"]:
-                            sys_value = str(bp_data["sys"]).strip()
-                            # 移除可能的单位
-                            units_to_remove = ["mmHg", "mmhg", "kPa", "kpa", "mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
-                            for unit in units_to_remove:
-                                if unit.lower() in sys_value.lower():
-                                    import re
-                                    sys_value = re.sub(re.escape(unit), '', sys_value, flags=re.IGNORECASE).strip()
-                            try:
-                                new_bp_data["systolic"] = int(float(sys_value))
-                            except (ValueError, TypeError):
-                                new_bp_data["systolic"] = bp_data["sys"]
-                        
-                        # 处理舒张压 (dia -> diastolic)
-                        if "dia" in bp_data and bp_data["dia"]:
-                            dia_value = str(bp_data["dia"]).strip()
-                            # 移除可能的单位
-                            for unit in units_to_remove:
-                                if unit.lower() in dia_value.lower():
-                                    import re
-                                    dia_value = re.sub(re.escape(unit), '', dia_value, flags=re.IGNORECASE).strip()
-                            try:
-                                new_bp_data["diastolic"] = int(float(dia_value))
-                            except (ValueError, TypeError):
-                                new_bp_data["diastolic"] = bp_data["dia"]
-                        
-                        # 处理心率 (pul -> pulse)
-                        if "pul" in bp_data and bp_data["pul"]:
-                            pul_value = str(bp_data["pul"]).strip()
-                            # 移除可能的单位
-                            for unit in units_to_remove:
-                                if unit.lower() in pul_value.lower():
-                                    import re
-                                    pul_value = re.sub(re.escape(unit), '', pul_value, flags=re.IGNORECASE).strip()
-                            try:
-                                new_bp_data["pulse"] = int(float(pul_value))
-                            except (ValueError, TypeError):
-                                new_bp_data["pulse"] = bp_data["pul"]
-                        
-                        # 更新血压数据
-                        ocr_dict["data"]["blood_pressure"] = new_bp_data
-                        print(f"血压数据规范化: {bp_data} -> {new_bp_data}")
-
-                    # 处理血糖单位和转换
-                    if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
-                        bs_value = ocr_dict["data"]["blood_sugar"]
-                        other_value = ocr_dict["data"].get("other_value", "")
-                        
-                        if bs_value and bs_value != "null":
-                            try:
-                                # 提取数值部分（去除可能的单位）
-                                value_str = str(bs_value).strip()
-                                print(f"原始血糖值: '{value_str}'")
-                                print(f"other_value: '{other_value}'")
-
-                                # 检查是否包含mg单位（从blood_sugar或other_value中）
-                                has_mg_unit = False
-                                if "mg" in value_str.lower() or (other_value and "mg" in str(other_value).lower()):
-                                    has_mg_unit = True
-                                    print(f"检测到mg单位")
-
-                                # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
-                                units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
-                                for unit in units_to_remove:
-                                    if unit.lower() in value_str.lower():
-                                        # 不区分大小写移除单位
-                                        import re
-                                        value_str = re.sub(re.escape(unit), '', value_str,
-                                                           flags=re.IGNORECASE).strip()
-                                        print(f"移除单位 '{unit}' 后: '{value_str}'")
-
-                                blood_sugar_value = float(value_str)
-                                print(f"提取的数值: {blood_sugar_value}")
-
-                                # 根据是否检测到mg单位来决定转换方式
-                                if has_mg_unit:
-                                    # 检测到mg单位，使用标准转换（除以18）
-                                    blood_sugar_value = blood_sugar_value / 18
-                                    print(f"血糖单位转换(mg->mmol/L): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
-                                elif blood_sugar_value > 10:
-                                    # 默认情况：数值大于20，除以10
-                                    blood_sugar_value = blood_sugar_value / 10
-                                    print(f"血糖数值转换(>20除以10): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
-
-                                # 添加mmol/L单位
-                                ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
-
-                            except (ValueError, TypeError) as e:
-                                print(f"血糖值转换错误: {bs_value} - {str(e)}")
-                                # 如果转换失败，直接添加单位
-                                if not str(bs_value).endswith("mmol/L"):
-                                    ocr_dict["data"]["blood_sugar"] = f"{bs_value}mmol/L"
-
-                    # 打印最终处理结果
-                    print("=== 最终处理结果 ===")
-                    print(json.dumps(ocr_dict, ensure_ascii=False, indent=2))
-                    print("==================")
-
-                    response_data = {
-                        "meta": ocr_dict.get("status", "success"),
-                        "data": ocr_dict["data"],
-
-                    }
-
-                    # 如果OCR识别成功，更新token使用次数
-                    if ocr_dict.get("status") == "success" or ocr_dict["data"].get("status") == "completed":
-                        update_token_usage(token)
-                        
-                    # 记录API日志 - 成功情况
-                    try:
-                        log_status = "success"
-                        if ocr_dict["data"].get("category") == "Not relevant":
-                            log_status = "not_relevant"
-                        elif ocr_dict["data"].get("category") == "error":
-                            log_status = "error"
-                            
-                        # 获取token当前使用次数
-                        current_use_times = get_token_use_times(token)
-                            
-                        APILogRepository.log_api_request(
-                            client_ip=client_ip,
-                            token=token,
-                            api_endpoint="/upload/image",
-                            status=log_status,
-                            file_upload_id=file_upload_id,
-                            file_name=file.filename,
-                            file_size=len(file_content),
-                            ai_usage=ocr_dict["data"].get("ai_usage", 0),
-                            token_usetimes=current_use_times
-                        )
-                    except Exception as log_error:
-                        print(f"记录API日志失败: {str(log_error)}")
-                        
-                except Exception as parse_error:
-                    # 处理API错误
-                    response_data = {
-                        "errors": [
-                            {
-                                "message": f"OCR解析失败",
-                                "extensions": {
-                                    "code": "OCR__ERROR"
-                                }
+                    current_use_times = get_token_use_times(token)
+                    APILogRepository.log_api_request(
+                        client_ip=client_ip,
+                        token=token,
+                        api_endpoint="/upload/image",
+                        status="failed",
+                        file_upload_id=file_upload_id,
+                        file_name=file.filename,
+                        file_size=len(file_content),
+                        error_message=ocr_dict["error"],
+                        error_code="OCR_ERROR",
+                        token_usetimes=current_use_times
+                    )
+                except Exception as log_error:
+                    print(f"记录API日志失败: {str(log_error)}")
+                
+                response_data = {
+                    "errors": [
+                        {
+                            "message": ocr_dict["error"],
+                            "extensions": {
+                                "code": "OCR_ERROR"
                             }
-                        ]
-                    }
+                        }
+                    ]
+                }
+                return JSONResponse(content=response_data)
+
+            # 输出日志
+            logging.info(f"OCR分析结果: {ocr_dict}")
+            logging.info(f"Usage信息: {usage_info}")
+
+            # 检查category字段是否为"Not relevant"
+            if ocr_dict["data"] and ocr_dict["data"].get("category") == "Not relevant":
+                # 计算AI使用情况
+                total_tokens = usage_info.get("total_tokens", 0)
+                ai_usage_value = total_tokens * 10 if total_tokens > 0 else 100
+                
+                # 记录API日志 - 图像不相关
+                try:
+                    # 获取token当前使用次数
+                    current_use_times = get_token_use_times(token)
                     
-                    # 记录API日志 - 解析失败
+                    APILogRepository.log_api_request(
+                        client_ip=client_ip,
+                        token=token,
+                        api_endpoint="/upload/image",
+                        status="not_relevant",
+                        file_upload_id=file_upload_id,
+                        file_name=file.filename,
+                        file_size=len(file_content),
+                        ai_usage=ai_usage_value,
+                        error_message="图像不相关",
+                        error_code="IMG__ERROR",
+                        token_usetimes=current_use_times
+                    )
+                except Exception as log_error:
+                    print(f"记录API日志失败: {str(log_error)}")
+                    
+                response_data = {
+                    "errors": [
+                        {
+                            "message": f"图像不相关",
+                            "extensions": {
+                                "code": "IMG__ERROR"
+                            }
+                        }
+                    ]
+                }
+                return JSONResponse(content=response_data)
+
+            # 添加后端获取的参数到data中
+            if ocr_dict["data"]:
+                # 计算AI使用情况
+                total_tokens = usage_info.get("total_tokens", 0)
+                ai_usage_value = total_tokens * 10 if total_tokens > 0 else 100
+                
+                print(f"AI Usage计算: total_tokens={total_tokens}, ai_usage_value={ai_usage_value}")
+                
+                # 检查血压数据有效性
+                error_response = check_blood_pressure_validity(
+                    ocr_dict, current_date, client_ip, ai_usage_value,
+                    file_upload_id, file.filename, len(file_content), token
+                )
+                if error_response:
+                    # 记录API日志 - 血压数据验证失败
                     try:
                         # 获取token当前使用次数
                         current_use_times = get_token_use_times(token)
@@ -589,60 +305,219 @@ async def upload_image(
                             file_upload_id=file_upload_id,
                             file_name=file.filename,
                             file_size=len(file_content),
-                            error_message="OCR解析失败",
-                            error_code="OCR__ERROR",
+                            ai_usage=ai_usage_value,
+                            error_message="血压数据验证失败",
+                            error_code="BLOOD_PRESSURE_INVALID",
                             token_usetimes=current_use_times
                         )
                     except Exception as log_error:
                         print(f"记录API日志失败: {str(log_error)}")
-            else:
-                # 处理API错误
-                response_data = {
-                    "errors": [
-                        {
-                            "message": f"OCR API调用错误",
-                            "extensions": {
-                                "code": "OCR_API_ERROR"
-                            }
-                        }
-                    ]
-                }
-                print(f"API错误: {response.code} - {response.message}")
-                
-                # 记录API日志 - API调用错误
-                try:
-                    # 获取token当前使用次数
-                    current_use_times = get_token_use_times(token)
-                    
-                    APILogRepository.log_api_request(
-                        client_ip=client_ip,
-                        token=token,
-                        api_endpoint="/upload/image",
-                        status="failed",
-                        file_upload_id=file_upload_id,
-                        file_name=file.filename,
-                        file_size=len(file_content),
-                        error_message="OCR API调用错误",
-                        error_code="OCR_API_ERROR",
-                        token_usetimes=current_use_times
-                    )
-                except Exception as log_error:
-                    print(f"记录API日志失败: {str(log_error)}")
+                    return error_response
 
-        except Exception as api_error:
-            # 处理API调用错误
+                # 检测是否是ai编造数据或非真实数据
+                error_response = check_blood_pressure_fake_data(
+                    ocr_dict, current_date, client_ip, ai_usage_value,
+                    file_upload_id, file.filename, len(file_content), token
+                )
+                if error_response:
+                    # 记录API日志 - 血压数据疑似编造
+                    try:
+                        # 获取token当前使用次数
+                        current_use_times = get_token_use_times(token)
+                        
+                        APILogRepository.log_api_request(
+                            client_ip=client_ip,
+                            token=token,
+                            api_endpoint="/upload/image",
+                            status="failed",
+                            file_upload_id=file_upload_id,
+                            file_name=file.filename,
+                            file_size=len(file_content),
+                            ai_usage=ai_usage_value,
+                            error_message="血压数据疑似编造",
+                            error_code="BLOOD_PRESSURE_FAKE",
+                            token_usetimes=current_use_times
+                        )
+                    except Exception as log_error:
+                        print(f"记录API日志失败: {str(log_error)}")
+                    return error_response
+
+                # 替换日期为当前日期
+                ocr_dict["data"]["measure_date"] = current_date
+
+                # 添加后端参数
+                ocr_dict["data"]["source_ip"] = client_ip
+
+                # 设置AI使用情况
+                ocr_dict["data"]["ai_usage"] = ai_usage_value
+
+                # 添加文件相关信息
+                ocr_dict["data"]["file_upload_id"] = file_upload_id
+                ocr_dict["data"]["file_name"] = file.filename
+                ocr_dict["data"]["file_size"] = len(file_content)
+                ocr_dict["data"]["token"] = token
+
+            # 根据category删除不需要的字段
+            if "data" in ocr_dict and ocr_dict["data"] and "category" in ocr_dict["data"]:
+                category = ocr_dict["data"]["category"]
+                if category == "blood_pressure":
+                    # 血压数据，删除blood_sugar字段
+                    if "blood_sugar" in ocr_dict["data"]:
+                        del ocr_dict["data"]["blood_sugar"]
+                elif category == "blood_sugar":
+                    # 血糖数据，删除blood_pressure字段
+                    if "blood_pressure" in ocr_dict["data"]:
+                        del ocr_dict["data"]["blood_pressure"]
+
+            # 规范血压命名systolic，diastolic，pulse
+            if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
+                bp_data = ocr_dict["data"]["blood_pressure"]
+                new_bp_data = {}
+                
+                # 处理收缩压 (sys -> systolic)
+                if "sys" in bp_data and bp_data["sys"]:
+                    sys_value = str(bp_data["sys"]).strip()
+                    # 移除可能的单位
+                    units_to_remove = ["mmHg", "mmhg", "kPa", "kpa", "mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
+                    for unit in units_to_remove:
+                        if unit.lower() in sys_value.lower():
+                            import re
+                            sys_value = re.sub(re.escape(unit), '', sys_value, flags=re.IGNORECASE).strip()
+                    try:
+                        new_bp_data["systolic"] = int(float(sys_value))
+                    except (ValueError, TypeError):
+                        new_bp_data["systolic"] = bp_data["sys"]
+                
+                # 处理舒张压 (dia -> diastolic)
+                if "dia" in bp_data and bp_data["dia"]:
+                    dia_value = str(bp_data["dia"]).strip()
+                    # 移除可能的单位
+                    for unit in units_to_remove:
+                        if unit.lower() in dia_value.lower():
+                            import re
+                            dia_value = re.sub(re.escape(unit), '', dia_value, flags=re.IGNORECASE).strip()
+                    try:
+                        new_bp_data["diastolic"] = int(float(dia_value))
+                    except (ValueError, TypeError):
+                        new_bp_data["diastolic"] = bp_data["dia"]
+                
+                # 处理心率 (pul -> pulse)
+                if "pul" in bp_data and bp_data["pul"]:
+                    pul_value = str(bp_data["pul"]).strip()
+                    # 移除可能的单位
+                    for unit in units_to_remove:
+                        if unit.lower() in pul_value.lower():
+                            import re
+                            pul_value = re.sub(re.escape(unit), '', pul_value, flags=re.IGNORECASE).strip()
+                    try:
+                        new_bp_data["pulse"] = int(float(pul_value))
+                    except (ValueError, TypeError):
+                        new_bp_data["pulse"] = bp_data["pul"]
+                
+                # 更新血压数据
+                ocr_dict["data"]["blood_pressure"] = new_bp_data
+                print(f"血压数据规范化: {bp_data} -> {new_bp_data}")
+
+            # 处理血糖单位和转换
+            if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
+                bs_value = ocr_dict["data"]["blood_sugar"]
+                other_value = ocr_dict["data"].get("other_value", "")
+                
+                if bs_value and bs_value != "null":
+                    try:
+                        # 提取数值部分（去除可能的单位）
+                        value_str = str(bs_value).strip()
+                        print(f"原始血糖值: '{value_str}'")
+                        print(f"other_value: '{other_value}'")
+
+                        # 检查是否包含mg单位（从blood_sugar或other_value中）
+                        has_mg_unit = False
+                        if "mg" in value_str.lower() or (other_value and "mg" in str(other_value).lower()):
+                            has_mg_unit = True
+                            print(f"检测到mg单位")
+
+                        # 移除已有的单位标识（先移除长单位，再移除短单位，避免部分匹配）
+                        units_to_remove = ["mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
+                        for unit in units_to_remove:
+                            if unit.lower() in value_str.lower():
+                                # 不区分大小写移除单位
+                                import re
+                                value_str = re.sub(re.escape(unit), '', value_str,
+                                                   flags=re.IGNORECASE).strip()
+                                print(f"移除单位 '{unit}' 后: '{value_str}'")
+
+                        blood_sugar_value = float(value_str)
+                        print(f"提取的数值: {blood_sugar_value}")
+
+                        # 根据是否检测到mg单位来决定转换方式
+                        if has_mg_unit:
+                            # 检测到mg单位，使用标准转换（除以18）
+                            blood_sugar_value = blood_sugar_value / 18
+                            print(f"血糖单位转换(mg->mmol/L): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+
+                        # 添加mmol/L单位
+                        ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
+
+                    except (ValueError, TypeError) as e:
+                        print(f"血糖值转换错误: {bs_value} - {str(e)}")
+                        # 如果转换失败，直接添加单位
+                        if not str(bs_value).endswith("mmol/L"):
+                            ocr_dict["data"]["blood_sugar"] = f"{bs_value}mmol/L"
+
+            # 打印最终处理结果
+            print("=== 最终处理结果 ===")
+            import json
+            print(json.dumps(ocr_dict, ensure_ascii=False, indent=2))
+            print("==================")
+
+            response_data = {
+                "meta": ocr_dict.get("status", "success"),
+                "data": ocr_dict["data"],
+            }
+
+            # 如果OCR识别成功，更新token使用次数
+            if ocr_dict.get("status") == "success" or ocr_dict["data"].get("status") == "completed":
+                update_token_usage(token)
+                
+            # 记录API日志 - 成功情况
+            try:
+                log_status = "success"
+                if ocr_dict["data"].get("category") == "Not relevant":
+                    log_status = "not_relevant"
+                elif ocr_dict["data"].get("category") == "error":
+                    log_status = "error"
+                    
+                # 获取token当前使用次数
+                current_use_times = get_token_use_times(token)
+                    
+                APILogRepository.log_api_request(
+                    client_ip=client_ip,
+                    token=token,
+                    api_endpoint="/upload/image",
+                    status=log_status,
+                    file_upload_id=file_upload_id,
+                    file_name=file.filename,
+                    file_size=len(file_content),
+                    ai_usage=ocr_dict["data"].get("ai_usage", 0),
+                    token_usetimes=current_use_times
+                )
+            except Exception as log_error:
+                print(f"记录API日志失败: {str(log_error)}")
+                
+        except Exception as parse_error:
+            # 处理解析错误
             response_data = {
                 "errors": [
                     {
-                        "message": f"OCR API调用错误: {str(api_error)}",
+                        "message": f"OCR解析失败: {str(parse_error)}",
                         "extensions": {
-                            "code": "OCR_API_ERROR"
+                            "code": "OCR_PARSE_ERROR"
                         }
                     }
                 ]
             }
             
-            # 记录API日志 - API调用异常
+            # 记录API日志 - 解析失败
             try:
                 # 获取token当前使用次数
                 current_use_times = get_token_use_times(token)
@@ -655,8 +530,8 @@ async def upload_image(
                     file_upload_id=file_upload_id,
                     file_name=file.filename,
                     file_size=len(file_content),
-                    error_message=f"OCR API调用错误: {str(api_error)}",
-                    error_code="OCR_API_ERROR",
+                    error_message=f"OCR解析失败: {str(parse_error)}",
+                    error_code="OCR_PARSE_ERROR",
                     token_usetimes=current_use_times
                 )
             except Exception as log_error:
@@ -665,9 +540,6 @@ async def upload_image(
         # 计算执行时间
         execution_time = time.time() - start_time
         print(f"处理完成，执行时间: {execution_time:.2f}秒")
-
-        # 将执行时间添加到响应中
-        # response_data["execution_time"] = f"{execution_time:.2f}秒"
 
         return JSONResponse(content=response_data)
 

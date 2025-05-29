@@ -461,8 +461,8 @@ function handleFiles(files) {
     }
 
     // 验证文件大小（最大700KB）
-    if (file.size > 500 * 1024) {
-        displayFileError('图像文件过大，请选择小于500KB的文件');
+    if (file.size > 1000 * 1024) {
+        displayFileError('图像文件过大，请选择小于1000KB的文件');
         return;
     }
 

@@ -295,30 +295,6 @@ uvicorn app.main:app --reload
 - **API框架**: FastAPI
 - **数据验证**: 多层验证机制
 
-#### 📊 API日志记录完整性检查报告
-✅ /upload/image 接口日志记录情况：
-1. token缺失 - ✅ 已记录
-2. token验证失败 - ✅ 已记录
-3. 文件格式错误 - ✅ 已记录
-4. 文件大小超限 - ✅ 已记录
-5. 图像不相关 - ✅ 已记录
-6. 血压数据验证失败 - ✅ 已记录
-7. 血压数据疑似编造 - ✅ 已记录
-8. OCR解析失败 - ✅ 已记录
-9. OCR API调用错误 - ✅ 已记录
-10. OCR API调用异常 - ✅ 已记录
-11. 成功处理 - ✅ 已记录
-12. 系统异常 - ✅ 已记录
-#### ✅ /upload/add_token 接口日志记录情况：
-1. center_id缺失 - ✅ 已记录
-2. center_id不存在 - ✅ 已记录
-3. 无法获取客户端IP - ✅ 已记录
-4. IP使用受限 - ✅ 已记录
-5. token格式无效 - ✅ 已记录
-6. token已存在 - ✅ 已记录
-7. 插入token失败 - ✅ 已记录
-8. 成功创建token - ✅ 已记录
-9. 
 #### 📋 日志记录的字段包括：
 ● client_ip: 客户端IP地址
 ● token: 使用的token
@@ -330,3 +306,159 @@ uvicorn app.main:app --reload
 ● ai_usage: AI使用量（仅图像接口）
 ● error_message: 错误消息（失败时）
 ● error_code: 错误代码（失败时）
+
+# OCR 模型切换功能说明
+
+## 概述
+
+本项目现在支持两种OCR模型：
+- **千问模型 (Qwen)**: 阿里云百炼的 qwen-vl-ocr-0413 模型
+- **OpenAI模型**: Azure OpenAI 的 gpt-4o 模型
+
+## 配置方法
+
+### 1. 环境变量配置
+
+在 `.env` 文件中配置以下变量：
+
+```bash
+# 模型选择 (qwen 或 openai)
+MODEL_TYPE=qwen
+
+# 千问模型配置
+DASHSCOPE_API_KEY=sk-your-dashscope-key
+
+# OpenAI模型配置
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-azure-openai-key
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_MODEL=gpt-4o
+```
+
+### 2. 模型切换
+
+#### 方法一：通过环境变量切换（推荐）
+```bash
+# 使用千问模型
+MODEL_TYPE=qwen
+
+# 使用OpenAI模型
+MODEL_TYPE=openai
+```
+
+#### 方法二：代码中动态切换
+```python
+from app.services.model_fun import get_ocr_model
+
+# 使用千问模型
+qwen_model = get_ocr_model("qwen")
+
+# 使用OpenAI模型
+openai_model = get_ocr_model("openai")
+
+# 使用默认模型（根据环境变量MODEL_TYPE）
+default_model = get_ocr_model()
+```
+
+## 模型差异
+
+### 千问模型 (Qwen)
+- **优势**: 专门针对OCR优化，识别准确度高
+- **图像处理**: 使用原始图像，内部进行优化处理
+- **返回格式**: 需要确保包含 `data` 字段
+- **成本**: 相对较低
+
+### OpenAI模型 (GPT-4o)
+- **优势**: 强大的理解能力，支持复杂场景
+- **图像处理**: 需要压缩图像到1024x1024以下
+- **返回格式**: 直接返回包含 `data` 字段的JSON
+- **成本**: 相对较高
+
+## 使用示例
+
+### 基本使用
+```python
+import asyncio
+from app.services.model_fun import get_ocr_model
+
+async def analyze_image():
+    # 获取模型实例
+    model = get_ocr_model()  # 使用环境变量中的模型
+    
+    # 读取图像文件
+    with open("blood_pressure.jpg", "rb") as f:
+        image_content = f.read()
+    
+    # 分析图像
+    result = model.analyze_image(image_content, "blood_pressure.jpg")
+    
+    print(result)
+
+# 运行示例
+asyncio.run(analyze_image())
+```
+
+### 在FastAPI中使用
+```python
+from app.services.model_fun import get_ocr_model
+
+@router.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    # 获取模型实例
+    ocr_model = get_ocr_model()
+    
+    # 读取文件内容
+    file_content = await file.read()
+    
+    # 分析图像
+    result = ocr_model.analyze_image(file_content, file.filename)
+    
+    return result
+```
+
+## 测试模型切换
+
+运行测试脚本：
+```bash
+python test_model_switch.py
+```
+
+这将测试两种模型的创建和配置是否正确。
+
+## 注意事项
+
+1. **API密钥**: 确保相应模型的API密钥已正确配置
+2. **网络连接**: 确保能够访问相应的API端点
+3. **图像格式**: 支持常见的图像格式（JPEG、PNG等）
+4. **文件大小**: OpenAI模型会自动压缩图像，千问模型建议控制在合理范围内
+5. **错误处理**: 两种模型都有完善的错误处理机制
+
+## 故障排除
+
+### 常见问题
+
+1. **模型创建失败**
+   - 检查API密钥是否正确
+   - 检查网络连接
+   - 检查环境变量配置
+
+2. **图像分析失败**
+   - 检查图像文件是否损坏
+   - 检查图像格式是否支持
+   - 检查API配额是否充足
+
+3. **返回结果格式错误**
+   - 检查模型返回的原始数据
+   - 查看日志中的错误信息
+   - 确认提示词是否正确
+
+### 调试方法
+
+启用详细日志：
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+这将输出详细的调试信息，帮助定位问题。 

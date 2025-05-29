@@ -1,4 +1,5 @@
-from PIL import Image, ImageEnhance
+from PIL import Image,  ExifTags
+
 import io
 
 
@@ -58,3 +59,27 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
     img.save(output_buffer, format='JPEG', quality=95)
 
     return output_buffer.getvalue()
+
+
+
+# 修正圖片方向
+def correct_image_orientation(image):
+    try:
+        img = Image.open(image)
+        if hasattr(img, "_getexif"):
+            exif = img._getexif()
+            if exif:
+                for orientation in ExifTags.TAGS:
+                    if ExifTags.TAGS[orientation] == "Orientation":
+                        break
+                if orientation in exif:
+                    if exif[orientation] == 3:
+                        img = img.rotate(180, expand=True)
+                    elif exif[orientation] == 6:
+                        img = img.rotate(270, expand=True)
+                    elif exif[orientation] == 8:
+                        img = img.rotate(90, expand=True)
+        print("Image orientation corrected.")
+        return img
+    except Exception:
+        return Image.open(image)
