@@ -1,0 +1,16 @@
+services:
+  fastapi:
+    image: fastapi-image
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
