@@ -87,13 +87,6 @@ uvicorn app.main:app --reload
    - 所有数据库操作都应该通过 `app/db/database.py` 中的Database类进行
    - 在 `app/models/` 定义新的数据库模型
 
-## 贡献
-
-欢迎提交Pull Request和Issue。
-
-## 许可证
-
-[MIT License](LICENSE)
 
 ## 核心功能详解
 
@@ -112,7 +105,7 @@ uvicorn app.main:app --reload
 
 #### 文件限制
 - **文件类型**: 仅支持图像文件 (image/*)
-- **文件大小**: 最大500KB
+- **文件大小**: 最大1mb
 - **像素范围**: 28×28×4 ~ 28×28×8192像素
 
 #### 处理流程
@@ -120,7 +113,7 @@ uvicorn app.main:app --reload
 ##### 1. 前置验证
 - Token有效性验证
 - 文件类型检查（必须为图像）
-- 文件大小检查（≤500KB）
+- 文件大小检查（≤1mb）
 - 生成16位随机文件上传ID
 - 获取客户端IP地址
 
@@ -207,9 +200,7 @@ uvicorn app.main:app --reload
     "measure_date": "2024-01-15",
     "measure_time": "09:15:00",
     "category": "blood_sugar",
-    "blood_sugar": {
-      "value": "5.8mmol/L"
-    },
+    "blood_sugar": "5.8mmol/L",
     "suggest": "血糖水平正常，建议继续保持良好的饮食习惯",
     "analyze_reliability": 0.92,
     "status": "completed",
@@ -244,7 +235,7 @@ uvicorn app.main:app --reload
 {
   "errors": [
     {
-      "messages": "文件大小超过500KB制",
+      "messages": "文件大小超过1mb制",
       "extensions": {
         "code": "UPLOAD_FILE_FAIL" 
       }
@@ -290,7 +281,6 @@ uvicorn app.main:app --reload
 5. **执行时间监控**: 记录完整处理时间用于性能监控
 
 #### 技术栈
-- **OCR引擎**: 阿里云DashScope qwen-vl-ocr-latest
 - **图像处理**: PIL/Pillow
 - **API框架**: FastAPI
 - **数据验证**: 多层验证机制
@@ -361,71 +351,6 @@ openai_model = get_ocr_model("openai")
 default_model = get_ocr_model()
 ```
 
-## 模型差异
-
-### 千问模型 (Qwen)
-- **优势**: 专门针对OCR优化，识别准确度高
-- **图像处理**: 使用原始图像，内部进行优化处理
-- **返回格式**: 需要确保包含 `data` 字段
-- **成本**: 相对较低
-
-### OpenAI模型 (GPT-4o)
-- **优势**: 强大的理解能力，支持复杂场景
-- **图像处理**: 需要压缩图像到1024x1024以下
-- **返回格式**: 直接返回包含 `data` 字段的JSON
-- **成本**: 相对较高
-
-## 使用示例
-
-### 基本使用
-```python
-import asyncio
-from app.services.model_fun import get_ocr_model
-
-async def analyze_image():
-    # 获取模型实例
-    model = get_ocr_model()  # 使用环境变量中的模型
-    
-    # 读取图像文件
-    with open("blood_pressure.jpg", "rb") as f:
-        image_content = f.read()
-    
-    # 分析图像
-    result = model.analyze_image(image_content, "blood_pressure.jpg")
-    
-    print(result)
-
-# 运行示例
-asyncio.run(analyze_image())
-```
-
-### 在FastAPI中使用
-```python
-from app.services.model_fun import get_ocr_model
-
-@router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    # 获取模型实例
-    ocr_model = get_ocr_model()
-    
-    # 读取文件内容
-    file_content = await file.read()
-    
-    # 分析图像
-    result = ocr_model.analyze_image(file_content, file.filename)
-    
-    return result
-```
-
-## 测试模型切换
-
-运行测试脚本：
-```bash
-python test_model_switch.py
-```
-
-这将测试两种模型的创建和配置是否正确。
-
 ## 注意事项
 
 1. **API密钥**: 确保相应模型的API密钥已正确配置
@@ -453,13 +378,6 @@ python test_model_switch.py
    - 查看日志中的错误信息
    - 确认提示词是否正确
 
-### 调试方法
-
-启用详细日志：
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
 
 # OpenAI 结构化输出实现
 
@@ -520,27 +438,6 @@ response = self.client.beta.chat.completions.parse(
 
 `extract_result` 方法现在首先尝试从 `response.choices[0].message.parsed` 获取结构化数据，如果失败则回退到原有的 JSON 解析方法。
 
-## 优势
-
-1. **类型安全**: Pydantic 模型提供了类型验证和自动转换
-2. **一致性**: 结构化输出确保响应格式的一致性
-3. **错误处理**: 更好的错误处理和验证
-4. **维护性**: 代码更易于维护和扩展
-5. **可靠性**: 减少了 JSON 解析错误的可能性
-
-## 兼容性
-
-- 保持与现有 Qwen 模型的完全兼容性
-- 现有的数据处理逻辑无需更改
-- API 响应格式保持不变
-
-## 测试
-
-使用 `test_structured_output.py` 脚本可以测试新的结构化输出功能：
-
-```bash
-python test_structured_output.py
-```
 
 ## 注意事项
 
@@ -548,15 +445,3 @@ python test_structured_output.py
 2. 结构化输出功能目前在 beta 阶段
 3. 如果结构化解析失败，系统会自动回退到传统的 JSON 解析方法
 
-## 环境变量
-
-确保在 `.env` 文件中正确配置：
-
-```
-MODEL_TYPE=openai  # 使用 OpenAI 模型
-AZURE_OPENAI_ENDPOINT=your_endpoint
-AZURE_OPENAI_API_KEY=your_api_key
-AZURE_OPENAI_API_VERSION=your_api_version
-AZURE_OPENAI_DEPLOYMENT=your_deployment_name
-AZURE_OPENAI_MODEL=your_model_name
-``` 

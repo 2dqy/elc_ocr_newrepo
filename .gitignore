@@ -1,24 +1,176 @@
-.DS_Store
-../.idea
-.venv
-.idea
-.env
-*.pyc
-*.pyo
-*.pyd
-*.bin
-*.exe
-*.dll
-*.whl
-*.egg-info
-*.egg
-*.dist-info
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+ 
+
+# C extensions
 *.so
-__pycache__
+
+ 
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+ 
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+ 
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+ 
+
+# Translations
+*.mo
+*.pot
+
+ 
+
+# Django stuff:
 *.log
-*.sqlite3
-*.db
-*.sqlite
-*.db-journal
-*.sublime-project
+
+ 
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+ 
+
+# Scrapy stuff:
+.scrapy
+
+ 
+
+# Sphinx documentation
+docs/_build/
+
+ 
+
+# PyBuilder
+target/
+
+ 
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+ 
+
+# IPython
+profile_default/
+ipython_config.py
+
+ 
+
+# pyenv
+.python-version
+
+ 
+
+# pipenv
+Pipfile.lock
+
+ 
+
+# poetry
+poetry.lock
+
+ 
+
+# pdm
+pdm.lock
+__pypackages__/
+
+ 
+
+# uv
+uv.lock
+
+ 
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+ 
+
+# Pyre type checker
+.pyre/
+
+ 
+
+# pytype
+.pytype/
+
+ 
+
+# Cython debug symbols
+cython_debug/
+
+ 
+
+# VS Code
+.vscode/
+
+ 
+
+# Environment variables
+.env
+.env.*
+
+ 
+
+# Local virtualenv
+venv/
+ENV/
+env/
+.venv/
+
+ 
+
+# Mac
+.DS_Store
+
+ 
+
+# Other editors
+.idea/
 *.sublime-workspace
+*.sublime-project
+
+ 
+
+# System
+Thumbs.db
