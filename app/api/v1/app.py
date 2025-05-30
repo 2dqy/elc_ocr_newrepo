@@ -166,7 +166,7 @@ async def upload_image(
                 file_upload_id=file_upload_id,
                 file_name=file.filename,
                 file_size=len(file_content),
-                error_message="文件大小超过500KB限制",
+                error_message="文件大小超过1mb限制",
                 error_code="UPLOAD_FILE_FAIL",
                 token_usetimes=current_use_times
             )
