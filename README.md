@@ -445,3 +445,10 @@ response = self.client.beta.chat.completions.parse(
 2. 结构化输出功能目前在 beta 阶段
 3. 如果结构化解析失败，系统会自动回退到传统的 JSON 解析方法
 
+
+#### dashboard
+OCR 请求总数（可按日期范围、中心和设备类型筛选）
+成功率和失败率（总体和每个中心）
+失败原因细分
+按使用情况排名靠前的中心
+每个请求的平均处理时间

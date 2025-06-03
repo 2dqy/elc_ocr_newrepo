@@ -706,6 +706,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 预先填充一个令牌便于测试
     if (tokenInput) {
-        tokenInput.value = 'bobtest';
+        tokenInput.value = '';
     }
 });

@@ -1,25 +1,44 @@
-from datetime import datetime
+# ===== 标准库 =====
 import os
 import time
 import base64
-from dotenv import load_dotenv
-from fastapi import File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
-from pathlib import Path
-import dashscope
 import random
 import string
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 
-from app.models.database import Database
-from app.models.database import APILogRepository
-from app.services.token_fun import verify_token, update_token_usage, get_ip_prefix, get_token_use_times
-from app.services.image_fun import process_image,correct_image_orientation
-from app.services.check_fun import check_other_value_error, check_blood_pressure_validity, \
-    check_blood_pressure_fake_data
-from app.services.model_fun import get_ocr_model
+# ===== 第三方库 =====
+from dotenv import load_dotenv
+from fastapi import APIRouter, Request, File, Form, UploadFile, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+import dashscope  # 如果是阿里云多模态 SDK，可以留下
+
+# ===== 本地模块（数据库 & 配置）=====
 from app.core.config import settings
-from fastapi import APIRouter
+from app.models.database import Database, APILogRepository
+
+# ===== 本地模块（服务函数）=====
+from app.services.token_fun import (
+    verify_token,
+    update_token_usage,
+    get_ip_prefix,
+    get_token_use_times,
+)
+from app.services.image_fun import (
+    process_image,
+    correct_image_orientation,
+)
+from app.services.check_fun import (
+    check_other_value_error,
+    check_blood_pressure_validity,
+    check_blood_pressure_fake_data,
+)
+from app.services.model_fun import get_ocr_model
+
+# ===== 日志 =====
 import logging
+
 
 # 设置日志级别和格式（只需设置一次，通常放在脚本开头）
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -88,12 +107,14 @@ async def upload_image(
         # 记录API日志 - token验证失败
         try:
             error_detail = e.detail if isinstance(e.detail, dict) else {"message": str(e.detail)}
-            error_message = error_detail.get("errors", [{}])[0].get("message", "token验证失败") if "errors" in error_detail else "token验证失败"
-            error_code = error_detail.get("errors", [{}])[0].get("extensions", {}).get("code", "TOKEN_ERROR") if "errors" in error_detail else "TOKEN_ERROR"
-            
+            error_message = error_detail.get("errors", [{}])[0].get("message",
+                                                                    "token验证失败") if "errors" in error_detail else "token验证失败"
+            error_code = error_detail.get("errors", [{}])[0].get("extensions", {}).get("code",
+                                                                                       "TOKEN_ERROR") if "errors" in error_detail else "TOKEN_ERROR"
+
             # 获取token当前使用次数（验证失败时可能为0）
             current_use_times = get_token_use_times(token)
-            
+
             APILogRepository.log_api_request(
                 client_ip=client_ip,
                 token=token,
@@ -105,7 +126,7 @@ async def upload_image(
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         # 将HTTPException转换为JSONResponse
         return JSONResponse(
             status_code=e.status_code,
@@ -121,7 +142,7 @@ async def upload_image(
         try:
             # 获取token当前使用次数
             current_use_times = get_token_use_times(token)
-            
+
             APILogRepository.log_api_request(
                 client_ip=client_ip,
                 token=token,
@@ -135,7 +156,7 @@ async def upload_image(
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=400,
             content={
@@ -157,7 +178,7 @@ async def upload_image(
         try:
             # 获取token当前使用次数
             current_use_times = get_token_use_times(token)
-            
+
             APILogRepository.log_api_request(
                 client_ip=client_ip,
                 token=token,
@@ -172,7 +193,7 @@ async def upload_image(
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=400,
             content={
@@ -188,7 +209,7 @@ async def upload_image(
     try:
         # 获取OCR模型实例（根据环境变量MODEL_TYPE选择模型）
         ocr_model = get_ocr_model()
-        
+
         # 根据模型类型处理图像
         model_type = os.getenv("MODEL_TYPE", "qwen").lower()
         if model_type == "qwen":
@@ -202,7 +223,7 @@ async def upload_image(
         try:
             # 使用统一的OCR模型接口进行分析
             ocr_dict, usage_info = ocr_model.analyze_image(image_for_analysis, file.filename)
-            
+
             # 检查是否有错误
             if "error" in ocr_dict:
                 # 记录API日志 - OCR分析失败
@@ -222,7 +243,7 @@ async def upload_image(
                     )
                 except Exception as log_error:
                     print(f"记录API日志失败: {str(log_error)}")
-                
+
                 response_data = {
                     "errors": [
                         {
@@ -244,12 +265,12 @@ async def upload_image(
                 # 计算AI使用情况
                 total_tokens = usage_info.get("total_tokens", 0)
                 ai_usage_value = total_tokens * 10 if total_tokens > 0 else 100
-                
+
                 # 记录API日志 - 图像不相关
                 try:
                     # 获取token当前使用次数
                     current_use_times = get_token_use_times(token)
-                    
+
                     APILogRepository.log_api_request(
                         client_ip=client_ip,
                         token=token,
@@ -265,7 +286,7 @@ async def upload_image(
                     )
                 except Exception as log_error:
                     print(f"记录API日志失败: {str(log_error)}")
-                    
+
                 response_data = {
                     "errors": [
                         {
@@ -283,9 +304,9 @@ async def upload_image(
                 # 计算AI使用情况
                 total_tokens = usage_info.get("total_tokens", 0)
                 ai_usage_value = total_tokens * 10 if total_tokens > 0 else 100
-                
+
                 print(f"AI Usage计算: total_tokens={total_tokens}, ai_usage_value={ai_usage_value}")
-                
+
                 # 检查数据有效性
                 error_response = check_blood_pressure_validity(
                     ocr_dict, current_date, client_ip, ai_usage_value,
@@ -296,7 +317,8 @@ async def upload_image(
                     try:
                         # 获取token当前使用次数
                         current_use_times = get_token_use_times(token)
-                        
+                        device_type = ocr_dict["data"]["category"]
+
                         APILogRepository.log_api_request(
                             client_ip=client_ip,
                             token=token,
@@ -308,7 +330,8 @@ async def upload_image(
                             ai_usage=ai_usage_value,
                             error_message="数据验证失败",
                             error_code="BLOOD_PRESSURE_INVALID",
-                            token_usetimes=current_use_times
+                            token_usetimes=current_use_times,
+                            device_type=device_type,
                         )
                     except Exception as log_error:
                         print(f"记录API日志失败: {str(log_error)}")
@@ -324,7 +347,8 @@ async def upload_image(
                     try:
                         # 获取token当前使用次数
                         current_use_times = get_token_use_times(token)
-                        
+                        device_type = ocr_dict["data"]["category"]
+
                         APILogRepository.log_api_request(
                             client_ip=client_ip,
                             token=token,
@@ -336,7 +360,9 @@ async def upload_image(
                             ai_usage=ai_usage_value,
                             error_message="血压数据疑似编造",
                             error_code="BLOOD_PRESSURE_FAKE",
-                            token_usetimes=current_use_times
+                            token_usetimes=current_use_times,
+                            device_type=device_type,
+
                         )
                     except Exception as log_error:
                         print(f"记录API日志失败: {str(log_error)}")
@@ -373,12 +399,13 @@ async def upload_image(
             if "blood_pressure" in ocr_dict["data"] and ocr_dict["data"]["blood_pressure"]:
                 bp_data = ocr_dict["data"]["blood_pressure"]
                 new_bp_data = {}
-                
+
                 # 处理收缩压 (sys -> systolic)
                 if "sys" in bp_data and bp_data["sys"]:
                     sys_value = str(bp_data["sys"]).strip()
                     # 移除可能的单位
-                    units_to_remove = ["mmHg", "mmhg", "kPa", "kpa", "mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min", "min", "/"]
+                    units_to_remove = ["mmHg", "mmhg", "kPa", "kpa", "mmol/L", "mg/dL", "mg/dl", "mmol", "mg", "/min",
+                                       "min", "/"]
                     for unit in units_to_remove:
                         if unit.lower() in sys_value.lower():
                             import re
@@ -387,7 +414,7 @@ async def upload_image(
                         new_bp_data["systolic"] = int(float(sys_value))
                     except (ValueError, TypeError):
                         new_bp_data["systolic"] = bp_data["sys"]
-                
+
                 # 处理舒张压 (dia -> diastolic)
                 if "dia" in bp_data and bp_data["dia"]:
                     dia_value = str(bp_data["dia"]).strip()
@@ -400,7 +427,7 @@ async def upload_image(
                         new_bp_data["diastolic"] = int(float(dia_value))
                     except (ValueError, TypeError):
                         new_bp_data["diastolic"] = bp_data["dia"]
-                
+
                 # 处理心率 (pul -> pulse)
                 if "pul" in bp_data and bp_data["pul"]:
                     pul_value = str(bp_data["pul"]).strip()
@@ -413,7 +440,7 @@ async def upload_image(
                         new_bp_data["pulse"] = int(float(pul_value))
                     except (ValueError, TypeError):
                         new_bp_data["pulse"] = bp_data["pul"]
-                
+
                 # 更新血压数据
                 ocr_dict["data"]["blood_pressure"] = new_bp_data
                 print(f"血压数据规范化: {bp_data} -> {new_bp_data}")
@@ -422,7 +449,7 @@ async def upload_image(
             if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
                 bs_value = ocr_dict["data"]["blood_sugar"]
                 other_value = ocr_dict["data"].get("other_value", "")
-                
+
                 if bs_value and bs_value != "null":
                     try:
                         # 提取数值部分（去除可能的单位）
@@ -476,13 +503,13 @@ async def upload_image(
             }
 
             # 如果OCR识别成功，更新token使用次数
-            if (ocr_dict.get("data") and 
-                ocr_dict["data"].get("category") not in ["Not relevant", "error", None]):
+            if (ocr_dict.get("data") and
+                    ocr_dict["data"].get("category") not in ["Not relevant", "error", None]):
                 update_token_usage(token)
                 print(f"Token使用次数已更新: {token}")
             else:
                 print(f"Token使用次数未更新，条件不满足: category={ocr_dict.get('data', {}).get('category')}")
-                
+
             # 记录API日志 - 成功情况
             try:
                 log_status = "success"
@@ -490,10 +517,13 @@ async def upload_image(
                     log_status = "not_relevant"
                 elif ocr_dict["data"].get("category") == "error":
                     log_status = "error"
-                    
+
                 # 获取token当前使用次数
                 current_use_times = get_token_use_times(token)
-                    
+                device_type = ocr_dict["data"]["category"]
+                api_execution_time = time.time() - start_time
+                processing_time = Decimal(api_execution_time).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
                 APILogRepository.log_api_request(
                     client_ip=client_ip,
                     token=token,
@@ -503,11 +533,14 @@ async def upload_image(
                     file_name=file.filename,
                     file_size=len(file_content),
                     ai_usage=ocr_dict["data"].get("ai_usage", 0),
-                    token_usetimes=current_use_times
+                    token_usetimes=current_use_times,
+                    device_type=device_type,
+                    processing_time=processing_time
+
                 )
             except Exception as log_error:
                 print(f"记录API日志失败: {str(log_error)}")
-                
+
         except Exception as parse_error:
             # 处理解析错误
             response_data = {
@@ -520,12 +553,12 @@ async def upload_image(
                     }
                 ]
             }
-            
+
             # 记录API日志 - 解析失败
             try:
                 # 获取token当前使用次数
                 current_use_times = get_token_use_times(token)
-                
+
                 APILogRepository.log_api_request(
                     client_ip=client_ip,
                     token=token,
@@ -536,7 +569,8 @@ async def upload_image(
                     file_size=len(file_content),
                     error_message=f"OCR解析失败: {str(parse_error)}",
                     error_code="OCR_PARSE_ERROR",
-                    token_usetimes=current_use_times
+                    token_usetimes=current_use_times,
+
                 )
             except Exception as log_error:
                 print(f"记录API日志失败: {str(log_error)}")
@@ -554,7 +588,7 @@ async def upload_image(
             current_use_times = 0
             if 'token' in locals() and token:
                 current_use_times = get_token_use_times(token)
-            
+
             APILogRepository.log_api_request(
                 client_ip=client_ip if 'client_ip' in locals() else "unknown",
                 token=token if 'token' in locals() else "",
@@ -565,11 +599,11 @@ async def upload_image(
                 file_size=len(file_content) if 'file_content' in locals() else None,
                 error_message=f"系统异常: {str(e)}",
                 error_code="SYSTEM_ERROR",
-                token_usetimes=current_use_times
+                token_usetimes=current_use_times,
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         # 处理可能发生的错误
         print(f"处理错误: {str(e)}")
         raise HTTPException(status_code=500, detail=f"UPLOAD_FILE_FAIL: {str(e)}")
@@ -610,7 +644,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=403,
             content={
@@ -638,7 +672,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=403,
             content={
@@ -668,7 +702,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=403,
             content={
@@ -695,7 +729,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=403,
             content={
@@ -727,7 +761,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=400,
             content={
@@ -758,7 +792,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=400,
             content={
@@ -790,7 +824,7 @@ async def add_token(request: Request, token_data: dict):
             )
         except Exception as log_error:
             print(f"记录API日志失败: {str(log_error)}")
-            
+
         return JSONResponse(
             status_code=400,
             content={
