@@ -147,6 +147,49 @@ h5 {
     color: black;
 }
 
+/* DataTables 统一样式 */
+.dataTables_wrapper table.dataTable thead th {
+    text-align: center !important;
+    vertical-align: middle !important;
+    position: relative;
+    padding-right: 30px !important;
+}
+
+.dataTables_wrapper table.dataTable tbody td {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* 排序箭头统一位置（右侧） */
+.dataTables_wrapper table.dataTable thead .sorting,
+.dataTables_wrapper table.dataTable thead .sorting_asc,
+.dataTables_wrapper table.dataTable thead .sorting_desc {
+    background-position: right 8px center !important;
+    padding-right: 30px !important;
+}
+
+.dataTables_wrapper table.dataTable thead .sorting:after,
+.dataTables_wrapper table.dataTable thead .sorting_asc:after,
+.dataTables_wrapper table.dataTable thead .sorting_desc:after {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* 表头背景和边框 */
+.dataTables_wrapper table.dataTable thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* 表格行的悬停效果 */
+.dataTables_wrapper table.dataTable.table-striped tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
 /* 原始数据表格样式 */
 .table-responsive {
     border: 1px solid #dee2e6;
@@ -208,6 +251,18 @@ h5 {
     overflow-wrap: break-word;
 }
 
+/* 状态徽章居中对齐 */
+.badge {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* 数字列右对齐 */
+.dataTables_wrapper table.dataTable tbody td.number-cell {
+    text-align: right !important;
+    padding-right: 15px !important;
+}
+
 /* 响应式表格优化 */
 @media (max-width: 768px) {
     .table-responsive {
@@ -216,5 +271,10 @@ h5 {
     
     #rawDataTable td {
         max-width: 150px;
+    }
+    
+    .dataTables_wrapper table.dataTable thead th {
+        padding: 8px 4px;
+        font-size: 0.875rem;
     }
 }

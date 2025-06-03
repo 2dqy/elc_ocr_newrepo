@@ -273,11 +273,11 @@ function updateCenterRankingTable(rankings, centerStats) {
     mergedData.forEach(item => {
         $('#centerRankingTable tbody').append(`
             <tr>
-                <td>${item.rank}</td>
+                <td class="number-cell">${item.rank}</td>
                 <td>${item.center_id}</td>
-                <td>${item.success_count}</td>
-                <td>${item.total_requests}</td>
-                <td>${item.success_rate}%</td>
+                <td class="number-cell">${item.success_count}</td>
+                <td class="number-cell">${item.total_requests}</td>
+                <td class="number-cell">${item.success_rate}%</td>
             </tr>
         `);
     });
@@ -288,7 +288,10 @@ function updateCenterRankingTable(rankings, centerStats) {
         order: [[0, 'asc']], // 默认按第一列升序排序
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-        }
+        },
+        columnDefs: [
+            { targets: [0, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
+        ]
     });
 }
 
@@ -308,10 +311,10 @@ function updateDeviceAnalysisTable(deviceAnalysis) {
         $('#deviceAnalysisTable tbody').append(`
             <tr>
                 <td>${device.device_type || 'Unknown'}</td>
-                <td>${device.total_requests}</td>
-                <td>${device.success_count}</td>
-                <td>${device.success_rate}%</td>
-                <td>${device.avg_processing_time}</td>
+                <td class="number-cell">${device.total_requests}</td>
+                <td class="number-cell">${device.success_count}</td>
+                <td class="number-cell">${device.success_rate}%</td>
+                <td class="number-cell">${device.avg_processing_time}</td>
             </tr>
         `);
     });
@@ -322,7 +325,10 @@ function updateDeviceAnalysisTable(deviceAnalysis) {
         order: [[1, 'desc']], // 默认按第二列降序排序
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-        }
+        },
+        columnDefs: [
+            { targets: [1, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
+        ]
     });
 }
 
@@ -342,8 +348,8 @@ function updateErrorAnalysisTable(errorAnalysis) {
         $('#errorAnalysisTable tbody').append(`
             <tr>
                 <td>${error.error_message}</td>
-                <td>${error.count}</td>
-                <td>${error.percentage}%</td>
+                <td class="number-cell">${error.count}</td>
+                <td class="number-cell">${error.percentage}%</td>
             </tr>
         `);
     });
@@ -354,7 +360,10 @@ function updateErrorAnalysisTable(errorAnalysis) {
         order: [[1, 'desc']], // 默认按第二列降序排序
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-        }
+        },
+        columnDefs: [
+            { targets: [1, 2], className: 'number-cell' } // 数字列右对齐
+        ]
     });
 }
 
@@ -376,7 +385,7 @@ function updateRawDataTable(rawData) {
     rawData.forEach(item => {
         $('#rawDataTable tbody').append(`
             <tr>
-                <td>${item.id || 'N/A'}</td>
+                <td class="number-cell">${item.id || 'N/A'}</td>
                 <td>${new Date(item.timestamp).toLocaleString()}</td>
                 <td>${item.client_ip || 'N/A'}</td>
                 <td>${item.token || 'N/A'}</td>
@@ -385,12 +394,12 @@ function updateRawDataTable(rawData) {
                 <td>${item.device_type || 'N/A'}</td>
                 <td>${item.file_upload_id || 'N/A'}</td>
                 <td>${item.file_name || 'N/A'}</td>
-                <td>${item.file_size ? item.file_size.toLocaleString() : 'N/A'}</td>
+                <td class="number-cell">${item.file_size ? item.file_size.toLocaleString() : 'N/A'}</td>
                 <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status}</span></td>
-                <td>${item.processing_time || 'N/A'}</td>
-                <td>${item.ai_usage || 0}</td>
-                <td>${item.remaining_times || 0}</td>
-                <td>${item.original_times || 0}</td>
+                <td class="number-cell">${item.processing_time || 'N/A'}</td>
+                <td class="number-cell">${item.ai_usage || 0}</td>
+                <td class="number-cell">${item.remaining_times || 0}</td>
+                <td class="number-cell">${item.original_times || 0}</td>
                 <td>${item.error_message ? item.error_message.substring(0, 50) + (item.error_message.length > 50 ? '...' : '') : 'N/A'}</td>
                 <td>${item.error_code || 'N/A'}</td>
             </tr>
@@ -406,7 +415,7 @@ function updateRawDataTable(rawData) {
             url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
         },
         columnDefs: [
-            { targets: [0], width: '60px' },        // ID列
+            { targets: [0], width: '60px', className: 'number-cell' },        // ID列
             { targets: [1], width: '150px' },       // 时间列
             { targets: [2], width: '120px' },       // 客户端IP列
             { targets: [3], width: '100px' },       // Token列
@@ -415,12 +424,12 @@ function updateRawDataTable(rawData) {
             { targets: [6], width: '100px' },       // 设备类型列
             { targets: [7], width: '120px' },       // 文件上传ID列
             { targets: [8], width: '150px' },       // 文件名列
-            { targets: [9], width: '120px' },       // 文件大小列
+            { targets: [9], width: '120px', className: 'number-cell' },       // 文件大小列
             { targets: [10], width: '80px' },       // 状态列
-            { targets: [11], width: '120px' },      // 处理时间列
-            { targets: [12], width: '100px' },       // AI使用量列
-            { targets: [13], width: '80px' },       // 剩余次数列
-            { targets: [14], width: '80px' },       // 原始次数列
+            { targets: [11], width: '120px', className: 'number-cell' },      // 处理时间列
+            { targets: [12], width: '100px', className: 'number-cell' },       // AI使用量列
+            { targets: [13], width: '80px', className: 'number-cell' },       // 剩余次数列
+            { targets: [14], width: '80px', className: 'number-cell' },       // 原始次数列
             { targets: [15], width: '200px' },      // 错误信息列
             { targets: [16], width: '100px' },      // 错误代码列
             {
