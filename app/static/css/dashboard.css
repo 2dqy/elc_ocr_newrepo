@@ -146,3 +146,75 @@ h5 {
 .stats-card{
     color: black;
 }
+
+/* 原始数据表格样式 */
+.table-responsive {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+/* DataTables 水平滚动优化 */
+.dataTables_wrapper .dataTables_scroll {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+.dataTables_wrapper .dataTables_scrollHead,
+.dataTables_wrapper .dataTables_scrollBody {
+    border: none;
+}
+
+/* 表格单元格样式 */
+#rawDataTable td {
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#rawDataTable td:hover {
+    overflow: visible;
+    white-space: normal;
+    position: relative;
+    z-index: 10;
+}
+
+/* 自定义导出按钮样式 */
+#exportCsvBtn {
+    transition: all 0.3s ease;
+}
+
+#exportCsvBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* 表格头部固定样式 */
+.dataTables_scrollHead .table thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+}
+
+/* DataTables 表格宽度优化 */
+#rawDataTable {
+    table-layout: fixed;
+}
+
+#rawDataTable th,
+#rawDataTable td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 响应式表格优化 */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    #rawDataTable td {
+        max-width: 150px;
+    }
+}

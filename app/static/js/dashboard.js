@@ -2,6 +2,7 @@
 let centerSuccessChart, deviceAnalysisChart, errorAnalysisChart;
 let centerRankingTable, deviceAnalysisTable, errorAnalysisTable, rawDataTable;
 let currentMonth = '';
+let currentRawData = []; // 存储当前的原始数据
 
 // 页面加载完成后初始化
 $(document).ready(function () {
@@ -24,7 +25,7 @@ async function initializePage() {
             }
         });
 
-        // 绑定“当月”按钮的点击事件，点击时加载当前月份数据
+        // 绑定"当月"按钮的点击事件，点击时加载当前月份数据
         $('#currentMonthBtn').on('click', function () {
             $('#monthInput').val(currentMonth);
             loadDashboardData(currentMonth);
@@ -362,6 +363,9 @@ function updateErrorAnalysisTable(errorAnalysis) {
  * @param {Array} rawData - 原始数据数组。
  */
 function updateRawDataTable(rawData) {
+    // 存储原始数据到全局变量
+    currentRawData = rawData;
+    
     // 如果表格已存在，则销毁它
     if (rawDataTable) {
         rawDataTable.destroy();
@@ -372,15 +376,23 @@ function updateRawDataTable(rawData) {
     rawData.forEach(item => {
         $('#rawDataTable tbody').append(`
             <tr>
+                <td>${item.id || 'N/A'}</td>
                 <td>${new Date(item.timestamp).toLocaleString()}</td>
-                <td>${item.token}</td>
+                <td>${item.client_ip || 'N/A'}</td>
+                <td>${item.token || 'N/A'}</td>
+                <td>${item.api_endpoint || 'N/A'}</td>
                 <td>${item.center_id || 'N/A'}</td>
                 <td>${item.device_type || 'N/A'}</td>
+                <td>${item.file_upload_id || 'N/A'}</td>
                 <td>${item.file_name || 'N/A'}</td>
+                <td>${item.file_size ? item.file_size.toLocaleString() : 'N/A'}</td>
                 <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status}</span></td>
                 <td>${item.processing_time || 'N/A'}</td>
                 <td>${item.ai_usage || 0}</td>
                 <td>${item.remaining_times || 0}</td>
+                <td>${item.original_times || 0}</td>
+                <td>${item.error_message ? item.error_message.substring(0, 50) + (item.error_message.length > 50 ? '...' : '') : 'N/A'}</td>
+                <td>${item.error_code || 'N/A'}</td>
             </tr>
         `);
     });
@@ -388,11 +400,96 @@ function updateRawDataTable(rawData) {
     // 初始化或重新初始化DataTable
     rawDataTable = $('#rawDataTable').DataTable({
         pageLength: 10, // 每页显示10条记录
-        order: [[0, 'desc']], // 默认按第一列降序排序
+        order: [[1, 'desc']], // 默认按时间列降序排序
+        scrollX: true, // 启用水平滚动
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-        }
+        },
+        columnDefs: [
+            { targets: [0], width: '60px' },        // ID列
+            { targets: [1], width: '150px' },       // 时间列
+            { targets: [2], width: '120px' },       // 客户端IP列
+            { targets: [3], width: '100px' },       // Token列
+            { targets: [4], width: '120px' },       // API端点列
+            { targets: [5], width: '80px' },        // 中心ID列
+            { targets: [6], width: '100px' },       // 设备类型列
+            { targets: [7], width: '120px' },       // 文件上传ID列
+            { targets: [8], width: '150px' },       // 文件名列
+            { targets: [9], width: '120px' },       // 文件大小列
+            { targets: [10], width: '80px' },       // 状态列
+            { targets: [11], width: '120px' },      // 处理时间列
+            { targets: [12], width: '100px' },       // AI使用量列
+            { targets: [13], width: '80px' },       // 剩余次数列
+            { targets: [14], width: '80px' },       // 原始次数列
+            { targets: [15], width: '200px' },      // 错误信息列
+            { targets: [16], width: '100px' },      // 错误代码列
+            {
+                targets: [15], // 错误信息列
+                render: function(data, type, row) {
+                    if (type === 'display' && data && data !== 'N/A') {
+                        return `<span title="${data}">${data.substring(0, 30)}${data.length > 30 ? '...' : ''}</span>`;
+                    }
+                    return data;
+                }
+            }
+        ]
     });
+
+    // 绑定自定义导出按钮事件
+    $('#exportCsvBtn').off('click').on('click', function() {
+        exportTableToCSV(currentRawData, 'OCR_原始数据');
+    });
+}
+
+/**
+ * 自定义CSV导出函数
+ * @param {Array} data - 要导出的数据
+ * @param {String} filename - 文件名
+ */
+function exportTableToCSV(data, filename) {
+    // CSV头部
+    const csvHeaders = [
+        'ID', '时间', '客户端IP', 'Token', 'API端点', '中心ID', 
+        '设备类型', '文件上传ID', '文件名', '文件大小(B)', '状态', 
+        '处理时间(s)', 'AI使用量', '剩余次数', '原始次数', '错误信息', '错误代码'
+    ];
+    
+    // 构建CSV内容
+    let csvContent = csvHeaders.join(',') + '\n';
+    
+    data.forEach(item => {
+        const row = [
+            item.id || '',
+            new Date(item.timestamp).toLocaleString(),
+            item.client_ip || '',
+            item.token || '',
+            item.api_endpoint || '',
+            item.center_id || '',
+            item.device_type || '',
+            item.file_upload_id || '',
+            item.file_name || '',
+            item.file_size || '',
+            item.status || '',
+            item.processing_time || '',
+            item.ai_usage || 0,
+            item.remaining_times || 0,
+            item.original_times || 0,
+            item.error_message ? `"${item.error_message.replace(/"/g, '""')}"` : '',
+            item.error_code || ''
+        ];
+        csvContent += row.join(',') + '\n';
+    });
+    
+    // 创建下载链接
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 /**
@@ -493,10 +590,8 @@ document.addEventListener('DOMContentLoaded', function () {
         passwordOverlay.style.display = 'none'; // 隐藏密码覆盖层
         mainContent.style.display = 'block'; // 显示主内容区域
 
-        // 如果存在loadDashboard函数，则调用它以加载仪表盘功能
-        if (typeof loadDashboard === 'function') {
-            loadDashboard();
-        }
+        // 初始化仪表盘功能
+        initializePage();
     }
 
     /**
