@@ -1,3 +1,4 @@
+// 定义图表和表格变量
 let centerSuccessChart, deviceAnalysisChart, errorAnalysisChart;
 let centerRankingTable, deviceAnalysisTable, errorAnalysisTable, rawDataTable;
 let currentMonth = '';
@@ -7,12 +8,15 @@ $(document).ready(function () {
     initializePage();
 });
 
+/**
+ * 初始化页面，包括加载可用月份和绑定事件。
+ */
 async function initializePage() {
     try {
         // 加载可用月份信息
         await loadAvailableMonths();
 
-        // 绑定月份输入事件
+        // 绑定月份输入框的change事件，当选择月份变化时加载数据
         $('#monthInput').on('change', function () {
             const selectedMonth = $(this).val();
             if (selectedMonth) {
@@ -20,130 +24,162 @@ async function initializePage() {
             }
         });
 
-        // 绑定当月按钮事件
+        // 绑定“当月”按钮的点击事件，点击时加载当前月份数据
         $('#currentMonthBtn').on('click', function () {
             $('#monthInput').val(currentMonth);
             loadDashboardData(currentMonth);
         });
 
     } catch (error) {
+        // 初始化失败时显示错误信息
         showError('初始化失败: ' + error.message);
     }
 }
 
+/**
+ * 从后端加载可用月份数据。
+ */
 async function loadAvailableMonths() {
     try {
         const response = await fetch('/dashboard/months');
         const result = await response.json();
 
         if (result.success) {
+            // 获取月份列表和当前月份
             const months = result.data.months;
             currentMonth = result.data.current_month;
 
-            // 设置当月指示器
+            // 更新页面上的当前月份指示器
             $('#currentMonthIndicator').html(`当前月份: ${currentMonth} <span class="current-month-badge">当月</span>`);
 
-            // 默认设置为当月并加载数据
+            // 默认设置月份输入框为当前月份并加载对应数据
             $('#monthInput').val(currentMonth);
             loadDashboardData(currentMonth);
 
         } else {
+            // 如果获取月份数据失败，抛出错误
             throw new Error('获取月份数据失败');
         }
     } catch (error) {
+        // 加载可用月份失败时显示错误信息
         showError('加载可用月份失败: ' + error.message);
     }
 }
 
+/**
+ * 根据指定的年月加载仪表盘数据。
+ * @param {string} yearMonth - 年月字符串，格式为YYYY-MM。
+ */
 async function loadDashboardData(yearMonth) {
-    showLoading();
+    showLoading(); // 显示加载动画
 
     try {
+        // 发送请求获取仪表盘数据
         const response = await fetch(`/dashboard/data?year_month=${yearMonth}`);
         const result = await response.json();
 
         if (result.success) {
+            // 数据获取成功，更新仪表盘并隐藏加载动画
             updateDashboard(result.data);
             hideLoading();
             showDashboard();
         } else {
+            // 数据获取失败，抛出错误
             throw new Error('获取数据失败');
         }
     } catch (error) {
+        // 加载数据失败时隐藏加载动画并显示错误信息
         hideLoading();
         showError('加载数据失败: ' + error.message);
     }
 }
 
+/**
+ * 更新仪表盘上的所有数据，包括统计卡片、图表和表格。
+ * @param {object} data - 仪表盘数据对象。
+ */
 function updateDashboard(data) {
-    // 更新统计卡片
-    $('#totalRequests').text(data.total_requests.toLocaleString());
-    $('#successRate').text(data.success_rate_overall + '%');
-    $('#avgProcessingTime').text(data.avg_processing_time + 's');
-    $('#totalCenters').text(data.center_stats.length);
+    // 更新统计卡片数据
+    $('#totalRequests').text(data.total_requests.toLocaleString()); // 总请求数
+    $('#successRate').text(data.success_rate_overall + '%'); // 总体成功率
+    $('#avgProcessingTime').text(data.avg_processing_time + 's'); // 平均处理时间
+    $('#totalCenters').text(data.center_stats.length); // 中心总数
 
     // 更新图表
-    updateCenterSuccessChart(data.center_stats);
-    updateDeviceAnalysisChart(data.device_analysis);
-    updateErrorAnalysisChart(data.error_analysis);
+    updateCenterSuccessChart(data.center_stats); // 更新中心成功率图表
+    updateDeviceAnalysisChart(data.device_analysis); // 更新设备分析图表
+    updateErrorAnalysisChart(data.error_analysis); // 更新错误分析图表
 
     // 更新数据表格
-    updateCenterRankingTable(data.center_ranking, data.center_stats);
-    updateDeviceAnalysisTable(data.device_analysis);
-    updateErrorAnalysisTable(data.error_analysis);
-    updateRawDataTable(data.raw_data);
+    updateCenterRankingTable(data.center_ranking, data.center_stats); // 更新中心排名表格
+    updateDeviceAnalysisTable(data.device_analysis); // 更新设备分析表格
+    updateErrorAnalysisTable(data.error_analysis); // 更新错误分析表格
+    updateRawDataTable(data.raw_data); // 更新原始数据表格
 }
 
+/**
+ * 更新中心成功率柱状图。
+ * @param {Array} centerStats - 中心统计数据数组。
+ */
 function updateCenterSuccessChart(centerStats) {
     const ctx = document.getElementById('centerSuccessChart').getContext('2d');
 
+    // 如果图表已存在，则销毁它以避免重复渲染
     if (centerSuccessChart) {
         centerSuccessChart.destroy();
     }
 
+    // 创建新的柱状图
     centerSuccessChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: centerStats.map(center => center.center_id),
+            labels: centerStats.map(center => center.center_id), // X轴标签为中心ID
             datasets: [{
-                label: '成功率 (%)',
-                data: centerStats.map(center => center.success_rate),
-                backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 1
+                label: '成功率 (%)', // 数据集标签
+                data: centerStats.map(center => center.success_rate), // 数据为成功率
+                backgroundColor: 'rgba(102, 126, 234, 0.6)', // 背景颜色
+                borderColor: 'rgba(102, 126, 234, 1)', // 边框颜色
+                borderWidth: 1 // 边框宽度
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, // 响应式布局
+            maintainAspectRatio: false, // 不保持纵横比
             scales: {
                 y: {
-                    beginAtZero: true,
-                    max: 100
+                    beginAtZero: true, // Y轴从0开始
+                    max: 100 // Y轴最大值为100
                 }
             }
         }
     });
 }
 
+/**
+ * 更新设备分析甜甜圈图。
+ * @param {Array} deviceAnalysis - 设备分析数据数组。
+ */
 function updateDeviceAnalysisChart(deviceAnalysis) {
     const ctx = document.getElementById('deviceAnalysisChart').getContext('2d');
 
+    // 如果图表已存在，则销毁它
     if (deviceAnalysisChart) {
         deviceAnalysisChart.destroy();
     }
 
+    // 如果没有设备数据，则显示提示信息并返回
     if (deviceAnalysis.length === 0) {
         ctx.fillText('暂无设备数据', 10, 50);
         return;
     }
 
+    // 创建新的甜甜圈图
     deviceAnalysisChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: deviceAnalysis.map(device => device.device_type || 'Unknown'),
+            labels: deviceAnalysis.map(device => device.device_type || 'Unknown'), // 标签为设备类型
             datasets: [{
-                data: deviceAnalysis.map(device => device.total_requests),
+                data: deviceAnalysis.map(device => device.total_requests), // 数据为总请求数
                 backgroundColor: [
                     '#FF6384',
                     '#36A2EB',
@@ -151,39 +187,46 @@ function updateDeviceAnalysisChart(deviceAnalysis) {
                     '#4BC0C0',
                     '#9966FF',
                     '#FF9F40'
-                ]
+                ] // 背景颜色数组
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, // 响应式布局
+            maintainAspectRatio: false, // 不保持纵横比
             plugins: {
                 legend: {
-                    position: 'bottom'
+                    position: 'bottom' // 图例位置在底部
                 }
             }
         }
     });
 }
 
+/**
+ * 更新错误分析饼图。
+ * @param {Array} errorAnalysis - 错误分析数据数组。
+ */
 function updateErrorAnalysisChart(errorAnalysis) {
     const ctx = document.getElementById('errorAnalysisChart').getContext('2d');
 
+    // 如果图表已存在，则销毁它
     if (errorAnalysisChart) {
         errorAnalysisChart.destroy();
     }
 
+    // 如果没有错误数据，则显示提示信息并返回
     if (errorAnalysis.length === 0) {
         ctx.fillText('暂无失败数据', 10, 50);
         return;
     }
 
+    // 创建新的饼图
     errorAnalysisChart = new Chart(ctx, {
         type: 'pie',
         data: {
-            labels: errorAnalysis.map(error => error.error_message.substring(0, 20) + '...'),
+            labels: errorAnalysis.map(error => error.error_message.substring(0, 20) + '...'), // 标签为错误信息（截断）
             datasets: [{
-                data: errorAnalysis.map(error => error.count),
+                data: errorAnalysis.map(error => error.count), // 数据为错误计数
                 backgroundColor: [
                     '#FF6384',
                     '#36A2EB',
@@ -191,22 +234,28 @@ function updateErrorAnalysisChart(errorAnalysis) {
                     '#4BC0C0',
                     '#9966FF',
                     '#FF9F40'
-                ]
+                ] // 背景颜色数组
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false
+            responsive: true, // 响应式布局
+            maintainAspectRatio: false // 不保持纵横比
         }
     });
 }
 
+/**
+ * 更新中心排名表格。
+ * @param {Array} rankings - 排名数据数组。
+ * @param {Array} centerStats - 中心统计数据数组。
+ */
 function updateCenterRankingTable(rankings, centerStats) {
+    // 如果表格已存在，则销毁它
     if (centerRankingTable) {
         centerRankingTable.destroy();
     }
 
-    // 合并排名和统计数据
+    // 合并排名和统计数据，以便在表格中显示完整信息
     const mergedData = rankings.map(ranking => {
         const stats = centerStats.find(stat => stat.center_id === ranking.center_id);
         return {
@@ -218,7 +267,8 @@ function updateCenterRankingTable(rankings, centerStats) {
         };
     });
 
-    $('#centerRankingTable tbody').empty();
+    $('#centerRankingTable tbody').empty(); // 清空表格体
+    // 遍历合并后的数据，并添加到表格中
     mergedData.forEach(item => {
         $('#centerRankingTable tbody').append(`
             <tr>
@@ -231,21 +281,28 @@ function updateCenterRankingTable(rankings, centerStats) {
         `);
     });
 
+    // 初始化或重新初始化DataTable
     centerRankingTable = $('#centerRankingTable').DataTable({
-        pageLength: 10,
-        order: [[0, 'asc']],
+        pageLength: 10, // 每页显示10条记录
+        order: [[0, 'asc']], // 默认按第一列升序排序
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json'
+            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
         }
     });
 }
 
+/**
+ * 更新设备分析表格。
+ * @param {Array} deviceAnalysis - 设备分析数据数组。
+ */
 function updateDeviceAnalysisTable(deviceAnalysis) {
+    // 如果表格已存在，则销毁它
     if (deviceAnalysisTable) {
         deviceAnalysisTable.destroy();
     }
 
-    $('#deviceAnalysisTable tbody').empty();
+    $('#deviceAnalysisTable tbody').empty(); // 清空表格体
+    // 遍历设备分析数据，并添加到表格中
     deviceAnalysis.forEach(device => {
         $('#deviceAnalysisTable tbody').append(`
             <tr>
@@ -258,21 +315,28 @@ function updateDeviceAnalysisTable(deviceAnalysis) {
         `);
     });
 
+    // 初始化或重新初始化DataTable
     deviceAnalysisTable = $('#deviceAnalysisTable').DataTable({
-        pageLength: 10,
-        order: [[1, 'desc']],
+        pageLength: 10, // 每页显示10条记录
+        order: [[1, 'desc']], // 默认按第二列降序排序
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json'
+            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
         }
     });
 }
 
+/**
+ * 更新错误分析表格。
+ * @param {Array} errorAnalysis - 错误分析数据数组。
+ */
 function updateErrorAnalysisTable(errorAnalysis) {
+    // 如果表格已存在，则销毁它
     if (errorAnalysisTable) {
         errorAnalysisTable.destroy();
     }
 
-    $('#errorAnalysisTable tbody').empty();
+    $('#errorAnalysisTable tbody').empty(); // 清空表格体
+    // 遍历错误分析数据，并添加到表格中
     errorAnalysis.forEach(error => {
         $('#errorAnalysisTable tbody').append(`
             <tr>
@@ -283,21 +347,28 @@ function updateErrorAnalysisTable(errorAnalysis) {
         `);
     });
 
+    // 初始化或重新初始化DataTable
     errorAnalysisTable = $('#errorAnalysisTable').DataTable({
-        pageLength: 10,
-        order: [[1, 'desc']],
+        pageLength: 10, // 每页显示10条记录
+        order: [[1, 'desc']], // 默认按第二列降序排序
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json'
+            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
         }
     });
 }
 
+/**
+ * 更新原始数据表格。
+ * @param {Array} rawData - 原始数据数组。
+ */
 function updateRawDataTable(rawData) {
+    // 如果表格已存在，则销毁它
     if (rawDataTable) {
         rawDataTable.destroy();
     }
 
-    $('#rawDataTable tbody').empty();
+    $('#rawDataTable tbody').empty(); // 清空表格体
+    // 遍历原始数据，并添加到表格中
     rawData.forEach(item => {
         $('#rawDataTable tbody').append(`
             <tr>
@@ -314,108 +385,134 @@ function updateRawDataTable(rawData) {
         `);
     });
 
+    // 初始化或重新初始化DataTable
     rawDataTable = $('#rawDataTable').DataTable({
-        pageLength: 10,
-        order: [[0, 'desc']],
+        pageLength: 10, // 每页显示10条记录
+        order: [[0, 'desc']], // 默认按第一列降序排序
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json'
+            url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
         }
     });
 }
 
+/**
+ * 根据状态获取对应的徽章CSS类。
+ * @param {string} status - 状态字符串（success, failed, not_relevant等）。
+ * @returns {string} 对应的CSS类名。
+ */
 function getStatusBadgeClass(status) {
     switch (status) {
         case 'success':
-            return 'bg-success';
+            return 'bg-success'; // 成功状态的绿色徽章
         case 'failed':
-            return 'bg-danger';
+            return 'bg-danger'; // 失败状态的红色徽章
         case 'not_relevant':
-            return 'bg-warning';
+            return 'bg-warning'; // 不相关状态的黄色徽章
         default:
-            return 'bg-secondary';
+            return 'bg-secondary'; // 默认状态的灰色徽章
     }
 }
 
+/**
+ * 显示加载动画并隐藏仪表盘内容和错误信息。
+ */
 function showLoading() {
-    $('#loadingSpinner').show();
-    $('#dashboardContent').hide();
-    $('#errorMessage').hide();
+    $('#loadingSpinner').show(); // 显示加载动画
+    $('#dashboardContent').hide(); // 隐藏仪表盘内容
+    $('#errorMessage').hide(); // 隐藏错误信息
 }
 
+/**
+ * 隐藏加载动画。
+ */
 function hideLoading() {
-    $('#loadingSpinner').hide();
+    $('#loadingSpinner').hide(); // 隐藏加载动画
 }
 
+/**
+ * 显示仪表盘内容并隐藏错误信息。
+ */
 function showDashboard() {
-    $('#dashboardContent').show();
-    $('#errorMessage').hide();
+    $('#dashboardContent').show(); // 显示仪表盘内容
+    $('#errorMessage').hide(); // 隐藏错误信息
 }
 
+/**
+ * 显示错误信息。
+ * @param {string} message - 要显示的错误消息。
+ */
 function showError(message) {
-    $('#errorText').text(message);
-    $('#errorMessage').show();
-    $('#dashboardContent').hide();
+    $('#errorText').text(message); // 设置错误文本
+    $('#errorMessage').show(); // 显示错误信息区域
+    $('#dashboardContent').hide(); // 隐藏仪表盘内容
 }
 
 // 密码验证功能
 document.addEventListener('DOMContentLoaded', function () {
-    const correctPassword = '3426';
-    const passwordOverlay = document.getElementById('passwordOverlay');
-    const mainContent = document.getElementById('mainContent');
-    const passwordForm = document.getElementById('passwordForm');
-    const passwordInput = document.getElementById('passwordInput');
-    const passwordError = document.getElementById('passwordError');
+    const correctPassword = '3426'; // 正确的密码
+    const passwordOverlay = document.getElementById('passwordOverlay'); // 密码覆盖层
+    const mainContent = document.getElementById('mainContent'); // 主内容区域
+    const passwordForm = document.getElementById('passwordForm'); // 密码表单
+    const passwordInput = document.getElementById('passwordInput'); // 密码输入框
+    const passwordError = document.getElementById('passwordError'); // 密码错误信息显示区域
 
-    // 检查是否已经验证过（在当前会话中）
+    // 检查是否已经验证过（在当前会话中），如果已验证则直接显示主内容
     if (sessionStorage.getItem('dashboard_authenticated') === 'true') {
         showMainContent();
     }
 
-    // 密码表单提交事件
+    // 密码表单提交事件监听器
     passwordForm.addEventListener('submit', function (e) {
-        e.preventDefault();
+        e.preventDefault(); // 阻止表单默认提交行为
 
-        const enteredPassword = passwordInput.value.trim();
+        const enteredPassword = passwordInput.value.trim(); // 获取用户输入的密码并去除空格
 
         if (enteredPassword === correctPassword) {
-            // 密码正确，保存验证状态并显示主内容
+            // 密码正确，保存验证状态到sessionStorage并显示主内容
             sessionStorage.setItem('dashboard_authenticated', 'true');
             showMainContent();
         } else {
-            // 密码错误，显示错误信息
+            // 密码错误，显示错误信息并清空输入框，重新聚焦
             showError('密码错误，请重新输入');
             passwordInput.value = '';
             passwordInput.focus();
         }
     });
 
-    // 回车键提交
+    // 密码输入框的回车键提交事件
     passwordInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
-            passwordForm.dispatchEvent(new Event('submit'));
+            passwordForm.dispatchEvent(new Event('submit')); // 触发表单提交事件
         }
     });
 
+    /**
+     * 显示主内容区域并隐藏密码覆盖层。
+     */
     function showMainContent() {
-        passwordOverlay.style.display = 'none';
-        mainContent.style.display = 'block';
+        passwordOverlay.style.display = 'none'; // 隐藏密码覆盖层
+        mainContent.style.display = 'block'; // 显示主内容区域
 
-        // 加载原有的 dashboard.js 功能
+        // 如果存在loadDashboard函数，则调用它以加载仪表盘功能
         if (typeof loadDashboard === 'function') {
             loadDashboard();
         }
     }
 
+    /**
+     * 显示密码错误信息。
+     * @param {string} message - 要显示的错误消息。
+     */
     function showError(message) {
-        passwordError.textContent = message;
-        passwordError.style.display = 'block';
+        passwordError.textContent = message; // 设置错误文本
+        passwordError.style.display = 'block'; // 显示错误信息
 
-        // 3秒后隐藏错误信息
+        // 3秒后自动隐藏错误信息
         setTimeout(() => {
             passwordError.style.display = 'none';
         }, 3000);
     }
 
-    // 自动聚焦到密码输入框
+    // 页面加载后自动聚焦到密码输入框
     passwordInput.focus();
 });
