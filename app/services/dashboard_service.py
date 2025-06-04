@@ -141,6 +141,98 @@ class DashboardService:
         if avg_processing_time == 0:
             avg_processing_time = 2.5  # 默认估算值
         
+        # 7. 按中心统计的Token使用次数趋势分析（修改）
+        center_token_trends = []
+        if 'timestamp' in df.columns and 'token' in df.columns and 'center_id' in df.columns:
+            # 将timestamp转换为日期
+            df['date'] = pd.to_datetime(df['timestamp']).dt.date
+            
+            # 按center和日期分组，计算每个中心每日的token使用总次数
+            center_usage_by_date = df.groupby(['center_id', 'date']).size().reset_index(name='token_usage_count')
+            
+            # 为每个center创建时间序列数据
+            for center_id in df['center_id'].unique():
+                if pd.isna(center_id):
+                    continue
+                    
+                center_data = center_usage_by_date[center_usage_by_date['center_id'] == center_id]
+                
+                # 只处理有足够数据的center（总使用次数>=10）
+                total_center_usage = len(df[df['center_id'] == center_id])
+                if total_center_usage >= 10:
+                    time_series = []
+                    for _, row in center_data.iterrows():
+                        time_series.append({
+                            'date': row['date'].strftime('%Y-%m-%d'),
+                            'token_usage_count': row['token_usage_count']
+                        })
+                    
+                    if time_series:
+                        center_token_trends.append({
+                            'center_id': str(center_id),
+                            'data': time_series
+                        })
+        
+        # 8. Token综合统计分析（合并原来的两个分析）
+        token_comprehensive_stats = []
+        if 'token' in df.columns:
+            for token in df['token'].unique():
+                if pd.isna(token):
+                    continue
+                    
+                token_data = df[df['token'] == token]
+                total_usage = len(token_data)
+                
+                if total_usage >= 3:  # 只分析使用次数>=3的token
+                    # 基本统计
+                    token_success = len(token_data[token_data['status'] == 'success'])
+                    token_success_rate = (token_success / total_usage * 100) if total_usage > 0 else 0
+                    
+                    # 计算该token的平均处理时间
+                    token_processing_times = token_data['processing_time'].dropna()
+                    token_avg_time = 0
+                    if len(token_processing_times) > 0:
+                        times = [float(pt) if isinstance(pt, Decimal) else pt for pt in token_processing_times if pt is not None]
+                        if times:
+                            token_avg_time = round(sum(times) / len(times), 3)
+                    
+                    # 频率分析
+                    df_with_date = token_data.copy()
+                    df_with_date['date'] = pd.to_datetime(df_with_date['timestamp']).dt.date
+                    df_with_date['hour'] = pd.to_datetime(df_with_date['timestamp']).dt.hour
+                    
+                    # 计算日使用频率
+                    daily_usage = df_with_date.groupby('date').size()
+                    avg_daily_usage = round(daily_usage.mean(), 2) if len(daily_usage) > 0 else 0
+                    max_daily_usage = daily_usage.max() if len(daily_usage) > 0 else 0
+                    
+                    # 计算使用的中心数量和中心列表
+                    centers_used_list = token_data['center_id'].dropna().unique()
+                    centers_used_count = len(centers_used_list)
+                    centers_used_str = ', '.join([str(c) for c in centers_used_list[:3]])  # 只显示前3个
+                    if len(centers_used_list) > 3:
+                        centers_used_str += f' (+{len(centers_used_list)-3}个)'
+                    
+                    # 最常使用的时间段
+                    hourly_usage = df_with_date.groupby('hour').size()
+                    peak_hour = hourly_usage.idxmax() if len(hourly_usage) > 0 else 0
+                    
+                    token_comprehensive_stats.append({
+                        'token': str(token)[:20] + '...' if len(str(token)) > 20 else str(token),
+                        'full_token': str(token),
+                        'usage_count': total_usage,
+                        'success_rate': round(token_success_rate, 2),
+                        'avg_processing_time': token_avg_time,
+                        'avg_daily_usage': avg_daily_usage,
+                        'max_daily_usage': int(max_daily_usage),
+                        'centers_used_count': centers_used_count,
+                        'centers_used_list': centers_used_str,
+                        'peak_hour': f"{peak_hour}:00-{peak_hour+1}:00"
+                    })
+            
+            # 按总使用次数排序
+            token_comprehensive_stats.sort(key=lambda x: x['usage_count'], reverse=True)
+
         return {
             "year_month": year_month,
             "total_requests": total_requests,
@@ -150,6 +242,8 @@ class DashboardService:
             "center_ranking": center_ranking_list,
             "device_analysis": device_analysis,
             "avg_processing_time": avg_processing_time,
+            "center_token_trends": center_token_trends,
+            "token_comprehensive_stats": token_comprehensive_stats,
             "raw_data": raw_data[:1000]  # 限制返回数据量，只返回前1000条
         }
     

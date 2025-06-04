@@ -1,6 +1,6 @@
 // 定义图表和表格变量
-let centerSuccessChart, deviceAnalysisChart, errorAnalysisChart;
-let centerRankingTable, deviceAnalysisTable, errorAnalysisTable, rawDataTable;
+let centerSuccessChart, deviceAnalysisChart, errorAnalysisChart, centerTimeTrendChart;
+let centerRankingTable, deviceAnalysisTable, errorAnalysisTable, rawDataTable, tokenUsageTable;
 let currentMonth = '';
 let currentRawData = []; // 存储当前的原始数据
 let isInitialized = false; // 防止重复初始化
@@ -50,6 +50,11 @@ async function initializePage() {
         });
 
         console.log('页面初始化完成');
+
+        // 初始化完成后移除DataTables悬浮背景
+        // setTimeout(() => {
+        //     removeDataTablesHoverBackground();
+        // }, 100);
 
     } catch (error) {
         // 初始化失败时显示错误信息
@@ -194,6 +199,8 @@ function handleDataLoadFailure(errorMessage) {
         center_ranking: [],
         device_analysis: [],
         error_analysis: [],
+        center_token_trends: [],         // 修改
+        token_comprehensive_stats: [],   // 修改
         raw_data: []
     };
 
@@ -227,12 +234,14 @@ function updateDashboard(data) {
     updateCenterSuccessChart(data.center_stats); // 更新中心成功率图表
     updateDeviceAnalysisChart(data.device_analysis); // 更新设备分析图表
     updateErrorAnalysisChart(data.error_analysis); // 更新错误分析图表
+    updateCenterTimeTrendChart(data.center_token_trends); // 更新中心Token使用次数趋势图表
 
     // 更新数据表格
     updateCenterRankingTable(data.center_ranking, data.center_stats); // 更新中心排名表格
     updateDeviceAnalysisTable(data.device_analysis); // 更新设备分析表格
     updateErrorAnalysisTable(data.error_analysis); // 更新错误分析表格
     updateRawDataTable(data.raw_data); // 更新原始数据表格
+    updateTokenUsageTable(data.token_comprehensive_stats); // 更新Token综合统计表格
 }
 
 /**
@@ -363,6 +372,144 @@ function updateErrorAnalysisChart(errorAnalysis) {
 }
 
 /**
+ * 更新中心Token使用次数趋势折线图。
+ * @param {Array} centerTokenTrends - 中心Token使用趋势数据数组。
+ */
+function updateCenterTimeTrendChart(centerTokenTrends) {
+    const ctx = document.getElementById('centerTimeTrendChart').getContext('2d');
+
+    // 如果图表已存在，则销毁它
+    if (centerTimeTrendChart) {
+        centerTimeTrendChart.destroy();
+    }
+
+    // 如果没有趋势数据，则显示提示信息并返回
+    if (!centerTokenTrends || centerTokenTrends.length === 0) {
+        ctx.fillText('暂无中心Token趋势数据', 10, 50);
+        return;
+    }
+
+    // 获取所有日期并排序
+    const allDates = new Set();
+    centerTokenTrends.forEach(center => {
+        center.data.forEach(point => allDates.add(point.date));
+    });
+    const sortedDates = Array.from(allDates).sort();
+
+    // 为每个center创建数据集
+    const datasets = centerTokenTrends.map((center, index) => {
+        // 为每个日期填充数据，没有数据的日期设为null
+        const data = sortedDates.map(date => {
+            const point = center.data.find(p => p.date === date);
+            return point ? point.token_usage_count : null;
+        });
+
+        const colors = [
+            '#667eea', '#f093fb', '#4facfe', '#43e97b',
+            '#fa709a', '#fee140', '#a8edea', '#d299c2',
+            '#ff9a9e', '#a8caba', '#fad0c4', '#a18cd1'
+        ];
+
+        return {
+            label: ` ${center.center_id}`,
+            data: data,
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '20', // 20% 透明度
+            borderWidth: 2,
+            fill: false,
+            tension: 0.1,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        };
+    });
+
+    // 创建新的折线图
+    centerTimeTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sortedDates, // X轴标签为日期
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: '日期'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: '中心Token使用次數'
+                    },
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const centerIndex = context.datasetIndex;
+                            const center = centerTokenTrends[centerIndex];
+                            return `中心ID: ${center.center_id}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * 强制移除DataTables分页按钮的悬浮背景
+ * 注释掉此函数，因为我们现在使用CSS优雅悬浮效果
+ */
+// function removeDataTablesHoverBackground() {
+//     // 使用事件委托来处理动态生成的分页按钮
+//     $(document).on('mouseenter mouseleave focus blur', '.dt-paging-button, .dataTables_paginate .paginate_button', function(e) {
+//         $(this).css({
+//             'background': 'transparent',
+//             'background-color': 'transparent',
+//             'background-image': 'none',
+//             'box-shadow': 'none',
+//             'border': '1px solid transparent'
+//         });
+//         
+//         // 同时处理子元素
+//         $(this).find('button, .page-link').css({
+//             'background': 'transparent',
+//             'background-color': 'transparent',
+//             'background-image': 'none',
+//             'box-shadow': 'none',
+//             'border': '1px solid transparent'
+//         });
+//     });
+//     
+//     // 定期检查并移除悬浮背景（作为额外保障）
+//     setInterval(function() {
+//         $('.dt-paging-button, .dataTables_paginate .paginate_button').css({
+//             'background': 'transparent',
+//             'background-color': 'transparent',
+//             'background-image': 'none'
+//         });
+//     }, 500);
+// }
+
+/**
  * 更新中心排名表格。
  * @param {Array} rankings - 排名数据数组。
  * @param {Array} centerStats - 中心统计数据数组。
@@ -416,8 +563,15 @@ function updateCenterRankingTable(rankings, centerStats) {
             },
             columnDefs: [
                 { targets: [0, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
-            ]
+            ],
+            drawCallback: function() {
+                // 每次重绘后移除悬浮背景
+                // removeDataTablesHoverBackground();
+            }
         });
+        
+        // 立即移除悬浮背景
+        // removeDataTablesHoverBackground();
     } catch (error) {
         console.error('更新中心排名表格失败:', error);
     }
@@ -464,8 +618,15 @@ function updateDeviceAnalysisTable(deviceAnalysis) {
             },
             columnDefs: [
                 { targets: [1, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
-            ]
+            ],
+            drawCallback: function() {
+                // 每次重绘后移除悬浮背景
+                // removeDataTablesHoverBackground();
+            }
         });
+        
+        // 立即移除悬浮背景
+        // removeDataTablesHoverBackground();
     } catch (error) {
         console.error('更新设备分析表格失败:', error);
     }
@@ -510,8 +671,15 @@ function updateErrorAnalysisTable(errorAnalysis) {
             },
             columnDefs: [
                 { targets: [1, 2], className: 'number-cell' } // 数字列右对齐
-            ]
+            ],
+            drawCallback: function() {
+                // 每次重绘后移除悬浮背景
+                // removeDataTablesHoverBackground();
+            }
         });
+        
+        // 立即移除悬浮背景
+        // removeDataTablesHoverBackground();
     } catch (error) {
         console.error('更新错误分析表格失败:', error);
     }
@@ -588,8 +756,8 @@ function updateRawDataTable(rawData) {
                 { targets: [12], width: '100px', className: 'number-cell' },       // AI使用量列
                 { targets: [13], width: '80px', className: 'number-cell' },       // 剩余次数列
                 { targets: [14], width: '80px', className: 'number-cell' },       // 原始次数列
-                { targets: [15], width: '200px' },      // 错误信息列
-                { targets: [16], width: '100px' },      // 错误代码列
+                { targets: [15], width: '120px' },      // 错误信息列
+                { targets: [16], width: '80px' },      // 错误代码列
                 {
                     targets: [15], // 错误信息列
                     render: function(data, type, row) {
@@ -599,8 +767,15 @@ function updateRawDataTable(rawData) {
                         return data;
                     }
                 }
-            ]
+            ],
+            drawCallback: function() {
+                // 每次重绘后移除悬浮背景
+                // removeDataTablesHoverBackground();
+            }
         });
+
+        // 立即移除悬浮背景
+        // removeDataTablesHoverBackground();
 
         // 绑定自定义导出按钮事件
         $('#exportCsvBtn').off('click').on('click', function() {
@@ -619,9 +794,9 @@ function updateRawDataTable(rawData) {
 function exportTableToCSV(data, filename) {
     // CSV头部
     const csvHeaders = [
-        'ID', '时间', '客户端IP', 'Token', 'API端点', '中心ID', 
-        '设备类型', '文件上传ID', '文件名', '文件大小(B)', '状态', 
-        '处理时间(s)', 'AI使用量', '剩余次数', '原始次数', '错误信息', '错误代码'
+        'ID', '時間', '客戶端IP', 'Token', 'API端點', '中心ID',
+        '裝置類型', '檔案上傳ID', '檔案名稱', '檔案大小(B)', '狀態',
+        '處理時間(s)', 'AI使用量', '剩餘次數', '原始次數', '錯誤訊息', '錯誤代碼'
     ];
     
     // 构建CSV内容
@@ -677,6 +852,77 @@ function getStatusBadgeClass(status) {
             return 'bg-warning'; // 不相关状态的黄色徽章
         default:
             return 'bg-secondary'; // 默认状态的灰色徽章
+    }
+}
+
+/**
+ * 更新Token综合统计表格。
+ * @param {Array} tokenComprehensiveStats - Token综合统计数据数组。
+ */
+function updateTokenUsageTable(tokenComprehensiveStats) {
+    try {
+        // 确保表格元素存在
+        if (!$('#tokenUsageTable').length) {
+            console.warn('Token综合统计表格元素不存在');
+            return;
+        }
+
+        // 如果表格已存在，则销毁它
+        if (tokenUsageTable && $.fn.dataTable.isDataTable('#tokenUsageTable')) {
+            tokenUsageTable.destroy();
+            tokenUsageTable = null;
+        }
+
+        $('#tokenUsageTable tbody').empty(); // 清空表格体
+        
+        // 遍历Token综合统计数据，并添加到表格中
+        if (tokenComprehensiveStats && tokenComprehensiveStats.length > 0) {
+            tokenComprehensiveStats.forEach(token => {
+                $('#tokenUsageTable tbody').append(`
+                    <tr>
+                        <td title="${token.full_token}">${token.token}</td>
+                        <td class="number-cell">${token.usage_count}</td>
+                        <td class="number-cell">${token.success_rate}%</td>
+                        <td class="number-cell">${token.avg_processing_time}s</td>
+                        <td class="number-cell">${token.avg_daily_usage}</td>
+                        <td class="number-cell">${token.max_daily_usage}</td>
+                        <td class="number-cell">${token.centers_used_count}</td>
+                        <td title="${token.centers_used_list}">${token.centers_used_list}</td>
+                        <td>${token.peak_hour}</td>
+                    </tr>
+                `);
+            });
+        }
+
+        // 初始化或重新初始化DataTable
+        tokenUsageTable = $('#tokenUsageTable').DataTable({
+            pageLength: 10, // 每页显示10条记录
+            order: [[1, 'desc']], // 默认按使用次数降序排序
+            scrollX: true, // 启用水平滚动
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
+            },
+            columnDefs: [
+                { targets: [0], width: '200px' },  // Token列
+                { targets: [1], width: '100px', className: 'number-cell' }, // 使用次数
+                { targets: [2], width: '80px', className: 'number-cell' },  // 成功率
+                { targets: [3], width: '140px', className: 'number-cell' }, // 平均处理时间
+                { targets: [4], width: '120px', className: 'number-cell' }, // 日均使用次数
+                { targets: [5], width: '140px', className: 'number-cell' }, // 最大日使用次数
+                { targets: [6], width: '100px', className: 'number-cell' }, // 使用中心数
+                { targets: [7], width: '100px' }, // 使用的中心列表
+                { targets: [8], width: '120px' }  // 高峰时段
+            ],
+            drawCallback: function() {
+                // 每次重绘后移除悬浮背景
+                // removeDataTablesHoverBackground();
+            }
+        });
+        
+        // 立即移除悬浮背景
+        // removeDataTablesHoverBackground();
+    } catch (error) {
+        console.error('更新Token综合统计表格失败:', error);
     }
 }
 

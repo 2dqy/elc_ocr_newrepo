@@ -137,12 +137,12 @@
     color: #667eea;
     margin-bottom: 20px;
 }
-/* h5 标签的字体颜色设置为白色*/
+/* h5 标签的字体颜色设置为*/
 h5 {
     color: black;
 }
 
-/* 标签的字体颜色设置为白色 */
+/* 标签的字体颜色设置为 */
 .stats-card{
     color: black;
 }
@@ -196,6 +196,32 @@ h5 {
     border-radius: 0.375rem;
 }
 
+/* Token综合统计分析表格样式 */
+#tokenUsageTable td {
+    white-space: nowrap;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#tokenUsageTable td:hover {
+    overflow: visible;
+    white-space: normal;
+    position: relative;
+    z-index: 10;
+}
+
+/* Token表格列宽优化 */
+#tokenUsageTable {
+    table-layout: fixed;
+}
+
+#tokenUsageTable th,
+#tokenUsageTable td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
 /* DataTables 水平滚动优化 */
 .dataTables_wrapper .dataTables_scroll {
     border: 1px solid #dee2e6;
@@ -229,7 +255,7 @@ h5 {
 
 #exportCsvBtn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(211, 0, 0, 0.2);
 }
 
 /* 表格头部固定样式 */
@@ -261,6 +287,116 @@ h5 {
 .dataTables_wrapper table.dataTable tbody td.number-cell {
     text-align: right !important;
     padding-right: 15px !important;
+}
+
+/* DataTables 分页按钮优雅悬浮效果 */
+div.dt-container .dt-paging .dt-paging-button,
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    background-color: rgba(248, 249, 250, 0.8) !important;
+    background-image: none !important;
+    border: 1px solid rgba(108, 117, 125, 0.25) !important;
+    color: #495057 !important;
+    border-radius: 6px !important;
+    margin: 0 2px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    text-decoration: none !important;
+}
+
+/* 分页按钮悬浮效果 */
+div.dt-container .dt-paging .dt-paging-button:hover,
+div.dt-container .dt-paging .dt-paging-button:focus,
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover,
+.dataTables_wrapper .dataTables_paginate .paginate_button:focus {
+    background-color: rgba(102, 126, 234, 0.1) !important;
+    background-image: none !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    color: #667eea !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+    text-decoration: none !important;
+    outline: none !important;
+}
+
+/* 当前页按钮样式 */
+div.dt-container .dt-paging .dt-paging-button.current,
+div.dt-container .dt-paging .dt-paging-button.current:hover {
+    background-color: rgba(102, 126, 234, 0.15) !important;
+    background-image: none !important;
+    border: 1px solid rgba(102, 126, 234, 0.5) !important;
+    color: #667eea !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25) !important;
+    transform: none !important;
+}
+
+/* 禁用按钮样式 */
+div.dt-container .dt-paging .dt-paging-button.disabled,
+div.dt-container .dt-paging .dt-paging-button.disabled:hover,
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+    background-color: rgba(233, 236, 239, 0.5) !important;
+    border: 1px solid rgba(233, 236, 239, 0.75) !important;
+    color: rgba(108, 117, 125, 0.6) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    opacity: 0.65 !important;
+}
+
+/* 针对具体的分页按钮元素 */
+.dt-paging-button.page-item {
+    background-color: rgba(248, 249, 250, 0.8) !important;
+    border: 1px solid rgba(108, 117, 125, 0.25) !important;
+    border-radius: 6px !important;
+    margin: 0 2px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dt-paging-button.page-item:hover,
+.dt-paging-button.page-item:focus {
+    background-color: rgba(102, 126, 234, 0.1) !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+}
+
+.dt-paging-button.page-item.active {
+    background-color: rgba(102, 126, 234, 0.15) !important;
+    border: 1px solid rgba(102, 126, 234, 0.5) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25) !important;
+}
+
+/* 针对分页按钮内的链接和按钮 */
+.dt-paging-button.page-item > .page-link,
+.dt-paging-button.page-item > button,
+div.dt-container .dt-paging .dt-paging-button {
+    background: inherit !important;
+    border: none !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* 移除原有的渐变背景覆盖 */
+div.dt-container .dt-paging .dt-paging-button:active {
+    transform: scale(0.98) !important;
+    box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* 分页信息文字样式 */
+div.dt-container .dt-info {
+    color: #6c757d !important;
+    font-size: 0.875rem !important;
+}
+
+/* 分页容器样式 */
+div.dt-container .dt-paging {
+    margin-top: 1rem !important;
 }
 
 /* 响应式表格优化 */
