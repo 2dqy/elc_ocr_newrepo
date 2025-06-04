@@ -3,33 +3,24 @@ let centerSuccessChart, deviceAnalysisChart, errorAnalysisChart;
 let centerRankingTable, deviceAnalysisTable, errorAnalysisTable, rawDataTable;
 let currentMonth = '';
 let currentRawData = []; // 存储当前的原始数据
+let isInitialized = false; // 防止重复初始化
 
 // 页面加载完成后初始化
 $(document).ready(function () {
-    // 确保页面完全加载后再进行初始化
-    if (document.readyState === 'loading') {
-        // 如果页面还在加载中，等待加载完成
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                if (sessionStorage.getItem('dashboard_authenticated') === 'true') {
-                    initializePage();
-                }
-            }, 100);
-        });
-    } else {
-        // 页面已加载完成，检查是否已验证
-        if (sessionStorage.getItem('dashboard_authenticated') === 'true') {
-            setTimeout(() => {
-                initializePage();
-            }, 100);
-        }
-    }
+    // 不在这里自动初始化，只在密码验证通过后初始化
+    console.log('jQuery ready, waiting for authentication...');
 });
 
 /**
  * 初始化页面，包括加载可用月份和绑定事件。
  */
 async function initializePage() {
+    // 防止重复初始化
+    if (isInitialized) {
+        console.log('页面已经初始化，跳过重复初始化');
+        return;
+    }
+
     try {
         // 确保DOM元素存在
         if (!$('#monthInput').length || !$('#currentMonthBtn').length) {
@@ -37,6 +28,9 @@ async function initializePage() {
             setTimeout(initializePage, 100);
             return;
         }
+
+        console.log('开始初始化页面...');
+        isInitialized = true; // 标记为已初始化
 
         // 加载可用月份信息
         await loadAvailableMonths();
@@ -55,9 +49,12 @@ async function initializePage() {
             loadDashboardData(currentMonth);
         });
 
+        console.log('页面初始化完成');
+
     } catch (error) {
         // 初始化失败时显示错误信息
         console.error('页面初始化失败:', error);
+        isInitialized = false; // 重置标记，允许重试
         showError('初始化失败: ' + error.message);
     }
 }
@@ -67,13 +64,21 @@ async function initializePage() {
  */
 async function loadAvailableMonths() {
     try {
+        console.log('开始加载可用月份数据...');
         const response = await fetch('/dashboard/months');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('月份数据响应:', result);
 
-        if (result.success) {
+        if (result.success && result.data) {
             // 获取月份列表和当前月份
             const months = result.data.months;
             currentMonth = result.data.current_month;
+            console.log('获取到当前月份:', currentMonth);
 
             // 确保DOM元素存在后再更新
             const indicator = $('#currentMonthIndicator');
@@ -85,19 +90,54 @@ async function loadAvailableMonths() {
 
             if (monthInput.length) {
                 monthInput.val(currentMonth);
+                console.log('开始加载仪表盘数据...');
                 loadDashboardData(currentMonth);
             } else {
                 throw new Error('月份输入框不存在');
             }
 
         } else {
-            // 如果获取月份数据失败，抛出错误
-            throw new Error(result.message || '获取月份数据失败');
+            // 如果获取月份数据失败，使用当前日期作为fallback
+            console.warn('后端月份数据获取失败，使用当前日期作为fallback');
+            await handleMonthDataFallback(result.message || '获取月份数据失败');
         }
     } catch (error) {
-        // 加载可用月份失败时显示错误信息
+        // 加载可用月份失败时使用fallback
         console.error('加载可用月份失败:', error);
-        showError('加载可用月份失败: ' + error.message);
+        await handleMonthDataFallback(error.message);
+    }
+}
+
+/**
+ * 处理月份数据获取失败的fallback逻辑
+ * @param {string} errorMessage - 错误信息
+ */
+async function handleMonthDataFallback(errorMessage) {
+    try {
+        // 使用当前日期作为fallback
+        const now = new Date();
+        currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        console.log('使用fallback当前月份:', currentMonth);
+
+        // 更新界面
+        const indicator = $('#currentMonthIndicator');
+        const monthInput = $('#monthInput');
+        
+        if (indicator.length) {
+            indicator.html(`当前月份: ${currentMonth} <span class="current-month-badge">当月(fallback)</span>`);
+        }
+
+        if (monthInput.length) {
+            monthInput.val(currentMonth);
+        }
+
+        // 尝试加载数据，如果失败则显示错误
+        console.log('使用fallback月份加载数据...');
+        await loadDashboardData(currentMonth);
+        
+    } catch (fallbackError) {
+        console.error('Fallback处理也失败:', fallbackError);
+        showError(`初始化失败: ${errorMessage}。Fallback处理: ${fallbackError.message}`);
     }
 }
 
@@ -106,6 +146,7 @@ async function loadAvailableMonths() {
  * @param {string} yearMonth - 年月字符串，格式为YYYY-MM。
  */
 async function loadDashboardData(yearMonth) {
+    console.log('开始加载仪表盘数据，月份:', yearMonth);
     showLoading(); // 显示加载动画
 
     try {
@@ -117,21 +158,57 @@ async function loadDashboardData(yearMonth) {
         }
         
         const result = await response.json();
+        console.log('仪表盘数据响应:', result);
 
-        if (result.success) {
+        if (result.success && result.data) {
             // 数据获取成功，更新仪表盘并隐藏加载动画
+            console.log('数据加载成功，更新仪表盘');
             updateDashboard(result.data);
             hideLoading();
             showDashboard();
         } else {
-            // 数据获取失败，抛出错误
-            throw new Error(result.message || '获取数据失败');
+            // 数据获取失败，使用空数据进行初始化
+            console.warn('后端数据获取失败，使用空数据初始化:', result.message);
+            handleDataLoadFailure(result.message || '获取数据失败');
         }
     } catch (error) {
-        // 加载数据失败时隐藏加载动画并显示错误信息
+        // 加载数据失败时使用空数据初始化
         console.error('加载数据失败:', error);
+        handleDataLoadFailure(error.message);
+    }
+}
+
+/**
+ * 处理数据加载失败的情况，使用空数据初始化表格
+ * @param {string} errorMessage - 错误信息
+ */
+function handleDataLoadFailure(errorMessage) {
+    console.log('使用空数据初始化表格');
+    
+    // 创建空数据结构
+    const emptyData = {
+        total_requests: 0,
+        success_rate_overall: 0,
+        avg_processing_time: 0,
+        center_stats: [],
+        center_ranking: [],
+        device_analysis: [],
+        error_analysis: [],
+        raw_data: []
+    };
+
+    try {
+        // 使用空数据更新仪表盘
+        updateDashboard(emptyData);
         hideLoading();
-        showError('加载数据失败: ' + error.message);
+        showDashboard();
+        
+        // 显示错误提示，但不阻止界面显示
+        showError(`数据加载失败: ${errorMessage}。显示空数据以便正常使用界面。`);
+    } catch (updateError) {
+        console.error('使用空数据更新仪表盘也失败:', updateError);
+        hideLoading();
+        showError(`严重错误: ${errorMessage}。界面初始化失败: ${updateError.message}`);
     }
 }
 
@@ -693,7 +770,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 检查是否已经验证过（在当前会话中），如果已验证则直接显示主内容
     if (sessionStorage.getItem('dashboard_authenticated') === 'true') {
+        console.log('检测到已验证状态，显示主内容');
         showMainContent();
+    } else {
+        console.log('未验证，显示密码输入界面');
     }
 
     // 密码表单提交事件监听器
@@ -704,10 +784,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (enteredPassword === correctPassword) {
             // 密码正确，保存验证状态到sessionStorage并显示主内容
+            console.log('密码验证成功');
             sessionStorage.setItem('dashboard_authenticated', 'true');
             showMainContent();
         } else {
             // 密码错误，显示错误信息并清空输入框，重新聚焦
+            console.log('密码验证失败');
             showPasswordError('密码错误，请重新输入');
             passwordInput.value = '';
             passwordInput.focus();
@@ -726,13 +808,12 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     function showMainContent() {
         try {
+            console.log('显示主内容，开始初始化...');
             passwordOverlay.style.display = 'none'; // 隐藏密码覆盖层
             mainContent.style.display = 'block'; // 显示主内容区域
 
-            // 等待DOM完全渲染后再初始化仪表盘功能
-            setTimeout(() => {
-                initializePage();
-            }, 50);
+            // 直接初始化仪表盘功能，不需要延迟
+            initializePage();
         } catch (error) {
             console.error('显示主内容失败:', error);
             showPasswordError('页面加载失败，请刷新重试');
@@ -763,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 页面加载后自动聚焦到密码输入框
     try {
-        if (passwordInput) {
+        if (passwordInput && passwordOverlay.style.display !== 'none') {
             passwordInput.focus();
         }
     } catch (error) {
