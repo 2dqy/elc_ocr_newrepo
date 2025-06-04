@@ -904,7 +904,7 @@ function updateTokenUsageTable(tokenComprehensiveStats) {
             //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
             // },
             columnDefs: [
-                {targets: [0], width: '200px'},  // Token列
+                {targets: [0], width: '120px'},  // Token列
                 {targets: [1], width: '100px', className: 'number-cell'}, // 使用次数
                 {targets: [2], width: '80px', className: 'number-cell'},  // 成功率
                 {targets: [3], width: '140px', className: 'number-cell'}, // 平均处理时间
