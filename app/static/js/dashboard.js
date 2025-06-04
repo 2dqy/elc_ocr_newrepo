@@ -71,11 +71,11 @@ async function loadAvailableMonths() {
     try {
         console.log('开始加载可用月份数据...');
         const response = await fetch('/dashboard/months');
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const result = await response.json();
         console.log('月份数据响应:', result);
 
@@ -88,7 +88,7 @@ async function loadAvailableMonths() {
             // 确保DOM元素存在后再更新
             const indicator = $('#currentMonthIndicator');
             const monthInput = $('#monthInput');
-            
+
             if (indicator.length) {
                 indicator.html(`当前月份: ${currentMonth} <span class="current-month-badge">当月</span>`);
             }
@@ -127,7 +127,7 @@ async function handleMonthDataFallback(errorMessage) {
         // 更新界面
         const indicator = $('#currentMonthIndicator');
         const monthInput = $('#monthInput');
-        
+
         if (indicator.length) {
             indicator.html(`当前月份: ${currentMonth} <span class="current-month-badge">当月(fallback)</span>`);
         }
@@ -139,7 +139,7 @@ async function handleMonthDataFallback(errorMessage) {
         // 尝试加载数据，如果失败则显示错误
         console.log('使用fallback月份加载数据...');
         await loadDashboardData(currentMonth);
-        
+
     } catch (fallbackError) {
         console.error('Fallback处理也失败:', fallbackError);
         showError(`初始化失败: ${errorMessage}。Fallback处理: ${fallbackError.message}`);
@@ -157,11 +157,11 @@ async function loadDashboardData(yearMonth) {
     try {
         // 发送请求获取仪表盘数据
         const response = await fetch(`/dashboard/data?year_month=${yearMonth}`);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const result = await response.json();
         console.log('仪表盘数据响应:', result);
 
@@ -189,7 +189,7 @@ async function loadDashboardData(yearMonth) {
  */
 function handleDataLoadFailure(errorMessage) {
     console.log('使用空数据初始化表格');
-    
+
     // 创建空数据结构
     const emptyData = {
         total_requests: 0,
@@ -209,7 +209,7 @@ function handleDataLoadFailure(errorMessage) {
         updateDashboard(emptyData);
         hideLoading();
         showDashboard();
-        
+
         // 显示错误提示，但不阻止界面显示
         showError(`数据加载失败: ${errorMessage}。显示空数据以便正常使用界面。`);
     } catch (updateError) {
@@ -462,7 +462,7 @@ function updateCenterTimeTrendChart(centerTokenTrends) {
                     mode: 'index',
                     intersect: false,
                     callbacks: {
-                        afterLabel: function(context) {
+                        afterLabel: function (context) {
                             const centerIndex = context.datasetIndex;
                             const center = centerTokenTrends[centerIndex];
                             return `中心ID: ${center.center_id}`;
@@ -558,18 +558,19 @@ function updateCenterRankingTable(rankings, centerStats) {
         centerRankingTable = $('#centerRankingTable').DataTable({
             pageLength: 10, // 每页显示10条记录
             order: [[0, 'asc']], // 默认按第一列升序排序
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-            },
+            // language: {
+            //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh-HANT.json' // 使用繁體中文語言包
+            //
+            // },
             columnDefs: [
-                { targets: [0, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
+                {targets: [0, 2, 3, 4], className: 'number-cell'} // 数字列右对齐
             ],
-            drawCallback: function() {
+            drawCallback: function () {
                 // 每次重绘后移除悬浮背景
                 // removeDataTablesHoverBackground();
             }
         });
-        
+
         // 立即移除悬浮背景
         // removeDataTablesHoverBackground();
     } catch (error) {
@@ -613,18 +614,18 @@ function updateDeviceAnalysisTable(deviceAnalysis) {
         deviceAnalysisTable = $('#deviceAnalysisTable').DataTable({
             pageLength: 10, // 每页显示10条记录
             order: [[1, 'desc']], // 默认按第二列降序排序
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-            },
+            // language: {
+            //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
+            // },
             columnDefs: [
-                { targets: [1, 2, 3, 4], className: 'number-cell' } // 数字列右对齐
+                {targets: [1, 2, 3, 4], className: 'number-cell'} // 数字列右对齐
             ],
-            drawCallback: function() {
+            drawCallback: function () {
                 // 每次重绘后移除悬浮背景
                 // removeDataTablesHoverBackground();
             }
         });
-        
+
         // 立即移除悬浮背景
         // removeDataTablesHoverBackground();
     } catch (error) {
@@ -666,18 +667,18 @@ function updateErrorAnalysisTable(errorAnalysis) {
         errorAnalysisTable = $('#errorAnalysisTable').DataTable({
             pageLength: 10, // 每页显示10条记录
             order: [[1, 'desc']], // 默认按第二列降序排序
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-            },
+            // language: {
+            //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
+            // },
             columnDefs: [
-                { targets: [1, 2], className: 'number-cell' } // 数字列右对齐
+                {targets: [1, 2], className: 'number-cell'} // 数字列右对齐
             ],
-            drawCallback: function() {
+            drawCallback: function () {
                 // 每次重绘后移除悬浮背景
                 // removeDataTablesHoverBackground();
             }
         });
-        
+
         // 立即移除悬浮背景
         // removeDataTablesHoverBackground();
     } catch (error) {
@@ -693,7 +694,7 @@ function updateRawDataTable(rawData) {
     try {
         // 存储原始数据到全局变量
         currentRawData = rawData;
-        
+
         // 确保表格元素存在
         if (!$('#rawDataTable').length) {
             console.warn('原始数据表格元素不存在');
@@ -737,30 +738,30 @@ function updateRawDataTable(rawData) {
             pageLength: 10, // 每页显示10条记录
             order: [[1, 'desc']], // 默认按时间列降序排序
             scrollX: true, // 启用水平滚动
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-            },
+            // language: {
+            //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
+            // },
             columnDefs: [
-                { targets: [0], width: '60px', className: 'number-cell' },        // ID列
-                { targets: [1], width: '150px' },       // 时间列
-                { targets: [2], width: '120px' },       // 客户端IP列
-                { targets: [3], width: '100px' },       // Token列
-                { targets: [4], width: '120px' },       // API端点列
-                { targets: [5], width: '80px' },        // 中心ID列
-                { targets: [6], width: '100px' },       // 设备类型列
-                { targets: [7], width: '120px' },       // 文件上传ID列
-                { targets: [8], width: '150px' },       // 文件名列
-                { targets: [9], width: '120px', className: 'number-cell' },       // 文件大小列
-                { targets: [10], width: '80px' },       // 状态列
-                { targets: [11], width: '120px', className: 'number-cell' },      // 处理时间列
-                { targets: [12], width: '100px', className: 'number-cell' },       // AI使用量列
-                { targets: [13], width: '80px', className: 'number-cell' },       // 剩余次数列
-                { targets: [14], width: '80px', className: 'number-cell' },       // 原始次数列
-                { targets: [15], width: '120px' },      // 错误信息列
-                { targets: [16], width: '80px' },      // 错误代码列
+                {targets: [0], width: '60px', className: 'number-cell'},        // ID列
+                {targets: [1], width: '150px'},       // 时间列
+                {targets: [2], width: '120px'},       // 客户端IP列
+                {targets: [3], width: '100px'},       // Token列
+                {targets: [4], width: '120px'},       // API端点列
+                {targets: [5], width: '80px'},        // 中心ID列
+                {targets: [6], width: '100px'},       // 设备类型列
+                {targets: [7], width: '120px'},       // 文件上传ID列
+                {targets: [8], width: '150px'},       // 文件名列
+                {targets: [9], width: '120px', className: 'number-cell'},       // 文件大小列
+                {targets: [10], width: '80px'},       // 状态列
+                {targets: [11], width: '120px', className: 'number-cell'},      // 处理时间列
+                {targets: [12], width: '100px', className: 'number-cell'},       // AI使用量列
+                {targets: [13], width: '80px', className: 'number-cell'},       // 剩余次数列
+                {targets: [14], width: '80px', className: 'number-cell'},       // 原始次数列
+                {targets: [15], width: '120px'},      // 错误信息列
+                {targets: [16], width: '80px'},      // 错误代码列
                 {
                     targets: [15], // 错误信息列
-                    render: function(data, type, row) {
+                    render: function (data, type, row) {
                         if (type === 'display' && data && data !== 'N/A') {
                             return `<span title="${data}">${data.substring(0, 30)}${data.length > 30 ? '...' : ''}</span>`;
                         }
@@ -768,7 +769,7 @@ function updateRawDataTable(rawData) {
                     }
                 }
             ],
-            drawCallback: function() {
+            drawCallback: function () {
                 // 每次重绘后移除悬浮背景
                 // removeDataTablesHoverBackground();
             }
@@ -778,7 +779,7 @@ function updateRawDataTable(rawData) {
         // removeDataTablesHoverBackground();
 
         // 绑定自定义导出按钮事件
-        $('#exportCsvBtn').off('click').on('click', function() {
+        $('#exportCsvBtn').off('click').on('click', function () {
             exportTableToCSV(currentRawData, 'OCR_原始数据');
         });
     } catch (error) {
@@ -798,10 +799,10 @@ function exportTableToCSV(data, filename) {
         '裝置類型', '檔案上傳ID', '檔案名稱', '檔案大小(B)', '狀態',
         '處理時間(s)', 'AI使用量', '剩餘次數', '原始次數', '錯誤訊息', '錯誤代碼'
     ];
-    
+
     // 构建CSV内容
     let csvContent = csvHeaders.join(',') + '\n';
-    
+
     data.forEach(item => {
         const row = [
             item.id || '',
@@ -824,9 +825,9 @@ function exportTableToCSV(data, filename) {
         ];
         csvContent += row.join(',') + '\n';
     });
-    
+
     // 创建下载链接
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\ufeff' + csvContent], {type: 'text/csv;charset=utf-8;'});
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -874,7 +875,7 @@ function updateTokenUsageTable(tokenComprehensiveStats) {
         }
 
         $('#tokenUsageTable tbody').empty(); // 清空表格体
-        
+
         // 遍历Token综合统计数据，并添加到表格中
         if (tokenComprehensiveStats && tokenComprehensiveStats.length > 0) {
             tokenComprehensiveStats.forEach(token => {
@@ -899,26 +900,26 @@ function updateTokenUsageTable(tokenComprehensiveStats) {
             pageLength: 10, // 每页显示10条记录
             order: [[1, 'desc']], // 默认按使用次数降序排序
             scrollX: true, // 启用水平滚动
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
-            },
+            // language: {
+            //     url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/zh.json' // 设置中文语言包
+            // },
             columnDefs: [
-                { targets: [0], width: '200px' },  // Token列
-                { targets: [1], width: '100px', className: 'number-cell' }, // 使用次数
-                { targets: [2], width: '80px', className: 'number-cell' },  // 成功率
-                { targets: [3], width: '140px', className: 'number-cell' }, // 平均处理时间
-                { targets: [4], width: '120px', className: 'number-cell' }, // 日均使用次数
-                { targets: [5], width: '140px', className: 'number-cell' }, // 最大日使用次数
-                { targets: [6], width: '100px', className: 'number-cell' }, // 使用中心数
-                { targets: [7], width: '100px' }, // 使用的中心列表
-                { targets: [8], width: '120px' }  // 高峰时段
+                {targets: [0], width: '200px'},  // Token列
+                {targets: [1], width: '100px', className: 'number-cell'}, // 使用次数
+                {targets: [2], width: '80px', className: 'number-cell'},  // 成功率
+                {targets: [3], width: '140px', className: 'number-cell'}, // 平均处理时间
+                {targets: [4], width: '120px', className: 'number-cell'}, // 日均使用次数
+                {targets: [5], width: '140px', className: 'number-cell'}, // 最大日使用次数
+                {targets: [6], width: '100px', className: 'number-cell'}, // 使用中心数
+                {targets: [7], width: '100px'}, // 使用的中心列表
+                {targets: [8], width: '120px'}  // 高峰时段
             ],
-            drawCallback: function() {
+            drawCallback: function () {
                 // 每次重绘后移除悬浮背景
                 // removeDataTablesHoverBackground();
             }
         });
-        
+
         // 立即移除悬浮背景
         // removeDataTablesHoverBackground();
     } catch (error) {
@@ -934,7 +935,7 @@ function showLoading() {
         const loadingSpinner = $('#loadingSpinner');
         const dashboardContent = $('#dashboardContent');
         const errorMessage = $('#errorMessage');
-        
+
         if (loadingSpinner.length) loadingSpinner.show();
         if (dashboardContent.length) dashboardContent.hide();
         if (errorMessage.length) errorMessage.hide();
@@ -964,7 +965,7 @@ function showDashboard() {
     try {
         const dashboardContent = $('#dashboardContent');
         const errorMessage = $('#errorMessage');
-        
+
         if (dashboardContent.length) dashboardContent.show();
         if (errorMessage.length) errorMessage.hide();
     } catch (error) {
@@ -981,7 +982,7 @@ function showError(message) {
         const errorText = $('#errorText');
         const errorMessage = $('#errorMessage');
         const dashboardContent = $('#dashboardContent');
-        
+
         if (errorText.length) {
             errorText.text(message);
         }
@@ -991,7 +992,7 @@ function showError(message) {
         if (dashboardContent.length) {
             dashboardContent.hide();
         }
-        
+
         // 同时在控制台输出错误信息以便调试
         console.error('Dashboard Error:', message);
     } catch (error) {
