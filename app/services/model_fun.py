@@ -298,21 +298,21 @@ class OpenAIOCRModel(BaseOCRModel):
         """修正图片方向"""
         try:
             img = Image.open(io.BytesIO(image_content))
-            if hasattr(img, "_getexif"):
-                exif = img._getexif()
-                if exif:
-                    for orientation in ExifTags.TAGS:
-                        if ExifTags.TAGS[orientation] == "Orientation":
-                            break
-                    if orientation in exif:
-                        if exif[orientation] == 3:
-                            img = img.rotate(180, expand=True)
-                        elif exif[orientation] == 6:
-                            img = img.rotate(270, expand=True)
-                        elif exif[orientation] == 8:
-                            img = img.rotate(90, expand=True)
-            
-            print(f"修正後的圖片方向: {img.getexif().get(274)}")
+            # if hasattr(img, "_getexif"):
+            #     exif = img._getexif()
+            #     if exif:
+            #         for orientation in ExifTags.TAGS:
+            #             if ExifTags.TAGS[orientation] == "Orientation":
+            #                 break
+            #         if orientation in exif:
+            #             if exif[orientation] == 3:
+            #                 img = img.rotate(180, expand=True)
+            #             elif exif[orientation] == 6:
+            #                 img = img.rotate(270, expand=True)
+            #             elif exif[orientation] == 8:
+            #                 img = img.rotate(90, expand=True)
+            #
+            # print(f"修正後的圖片方向: {img.getexif().get(274)}")
             return img
         except Exception:
             return Image.open(io.BytesIO(image_content))
