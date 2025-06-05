@@ -226,7 +226,6 @@ async def upload_image(
             #对图像外围20%的像素进行裁剪
             # image_for_analysis = crop_and_compress_image(image_for_analysis, target_size_ratio=0.8)
 
-
             # 使用统一的OCR模型接口进行分析
             ocr_dict, usage_info = ocr_model.analyze_image(image_for_analysis, file.filename)
 
