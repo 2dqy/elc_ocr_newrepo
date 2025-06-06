@@ -1,6 +1,7 @@
 from PIL import Image,  ExifTags
-
+import numpy as np
 import io
+import base64
 
 
 def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
@@ -61,98 +62,10 @@ def process_image(image_data, MIN_PIXELS, MAX_PIXELS):
     return output_buffer.getvalue()
 
 
-def crop_and_compress_image(image_data, target_size_ratio=0.8):
-    """
-    裁剪图像中间60%区域并压缩到目标大小
-    
-    参数:
-        image_data: 图像二进制数据
-        target_size_ratio: 目标文件大小与原始大小的比例 (默认0.8，即80%)
-    返回:
-        处理后的图像数据
-    """
+def correct_image_orientation(image_content: bytes) -> Image.Image:
+    """修正图片方向"""
     try:
-        # 使用PIL打开图像
-        img = Image.open(io.BytesIO(image_data))
-        
-        # 转换为RGB格式
-        if img.mode in ("RGBA", "LA"):
-            background = Image.new("RGB", img.size, (255, 255, 255))
-            background.paste(img, mask=img.split()[-1])  # Alpha通道
-            img = background
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-        
-        # 获取原始图像尺寸
-        width, height = img.size
-        print(f"📷 原始图像尺寸: {width}x{height}")
-        
-        # 裁剪中间60%区域（去掉外围20%）
-        w_crop = int(width * 0.2)  # 左右各裁剪20%
-        h_crop = int(height * 0.2)  # 上下各裁剪20%
-        
-        # 裁剪图像
-        cropped_img = img.crop((w_crop, h_crop, width - w_crop, height - h_crop))
-        print(f"✂️ 裁剪后图像尺寸: {cropped_img.size[0]}x{cropped_img.size[1]}")
-        
-        # 计算目标文件大小
-        original_size = len(image_data)
-        target_size = int(original_size * target_size_ratio)
-        print(f"🎯 目标文件大小: {target_size / 1024:.1f}KB (原始: {original_size / 1024:.1f}KB)")
-        
-        # 压缩到目标大小
-        compressed_data = compress_to_target_size(cropped_img, target_size)
-        
-        print(f"✅ 处理完成，最终文件大小: {len(compressed_data) / 1024:.1f}KB")
-        return compressed_data
-        
-    except Exception as e:
-        print(f"❌ 图像处理失败: {str(e)}")
-        # 如果处理失败，返回原始数据
-        return image_data
-
-
-def compress_to_target_size(img, target_size_bytes):
-    """
-    将PIL图像压缩到指定的文件大小
-    
-    参数:
-        img: PIL图像对象
-        target_size_bytes: 目标文件大小（字节）
-    返回:
-        压缩后的图像二进制数据
-    """
-    quality = 95  # 初始压缩质量
-    
-    while quality > 10:
-        # 创建内存缓冲区
-        output_buffer = io.BytesIO()
-        
-        # 保存图像到缓冲区
-        img.save(output_buffer, format='JPEG', quality=quality, optimize=True)
-        
-        # 获取压缩后的数据
-        compressed_data = output_buffer.getvalue()
-        current_size = len(compressed_data)
-        
-        # 检查是否满足大小要求
-        if current_size <= target_size_bytes:
-            print(f"🎯 压缩成功，质量: {quality}, 大小: {current_size / 1024:.1f}KB")
-            return compressed_data
-        
-        # 降低质量继续尝试
-        quality -= 5
-        print(f"🔄 尝试质量: {quality}, 当前大小: {current_size / 1024:.1f}KB")
-    
-    # 如果已经是最低质量，返回最后的结果
-    print(f"⚠️ 已尝试最低质量({quality + 5})，最终大小: {len(compressed_data) / 1024:.1f}KB")
-    return compressed_data
-
-
-# 修正圖片方向
-def correct_image_orientation(image):
-    try:
-        img = Image.open(image)
+        img = Image.open(io.BytesIO(image_content))
         if hasattr(img, "_getexif"):
             exif = img._getexif()
             if exif:
@@ -166,7 +79,38 @@ def correct_image_orientation(image):
                         img = img.rotate(270, expand=True)
                     elif exif[orientation] == 8:
                         img = img.rotate(90, expand=True)
-        print("Image orientation corrected.")
+
+        print(f"修正後的圖片方向: {img.getexif().get(274)}")
         return img
     except Exception:
-        return Image.open(image)
+        return Image.open(io.BytesIO(image_content))
+
+
+def compress_image(image_content: bytes, filename: str, max_size: int = 1024) -> str:
+    """压缩图像并转换为base64"""
+    try:
+        img = correct_image_orientation(image_content)
+        img = img.convert("RGB")
+        img.thumbnail((max_size, max_size))
+
+        # 保存压缩后的图像（可选）
+        # save_path = "compressed_images"
+        # if not os.path.exists(save_path):
+        #     os.makedirs(save_path)
+
+        # compressed_file_path = os.path.join(save_path, f"compressed_{filename}")
+        # img.save(compressed_file_path, format="JPEG")
+
+        # 转换为base64
+        img_byte_array = io.BytesIO()
+        img.save(img_byte_array, format="JPEG")
+        img_base64 = base64.b64encode(img_byte_array.getvalue()).decode("utf-8")
+
+        # 打印压缩后的文件大小
+        print(f"压缩后的文件大小: {len(img_base64)} bytes")
+        return img_base64
+
+    except Exception as e:
+        print(f"图像压缩失败: {str(e)}")
+        # 如果压缩失败，直接返回原始图像的base64
+        return base64.b64encode(image_content).decode("utf-8")
