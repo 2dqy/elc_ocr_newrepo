@@ -77,7 +77,7 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
             if "blood_sugar" in ocr_dict["data"]:
                 blood_sugar = ocr_dict["data"]["blood_sugar"]
                 
-                error_indicators = ["null", "", "e", "E", "l", "L"]
+                error_indicators = ["null", " ", "e", "E", "l", "L"]
 
                 # Check if blood_sugar is empty, null, or contains any of the error indicators
                 if (not blood_sugar or any(indicator in str(blood_sugar) for indicator in error_indicators)):
