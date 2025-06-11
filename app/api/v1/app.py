@@ -54,6 +54,7 @@ DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 MIN_PIXELS = int(os.getenv("MIN_PIXELS", 28 * 28 * 4))  # 最小像素阈值
 MAX_PIXELS = int(os.getenv("MAX_PIXELS", 28 * 28 * 8192))  # 最大像素阈值
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大小（500KB）
+ENABLE_IMAGE_ENHANCEMENT = os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true").lower() == "true"  # 是否启用图像增强
 
 # 初始化数据库
 db = Database()
@@ -215,6 +216,9 @@ async def upload_image(
             # 千问模型使用处理后的图像
             processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
             image_for_analysis = processed_image
+        elif model_type == "gemini":
+            # Gemini模型使用原始图像（不需要预处理）
+            image_for_analysis = file_content
         else:
             # OpenAI模型使用原始图像（在模型内部进行压缩）
             image_for_analysis = file_content
@@ -339,36 +343,7 @@ async def upload_image(
                         print(f"记录API日志失败: {str(log_error)}")
                     return error_response
 
-                # 检测是否是ai编造数据或非真实数据
-                error_response = check_blood_pressure_fake_data(
-                    ocr_dict, current_date, client_ip, ai_usage_value,
-                    file_upload_id, file.filename, len(file_content), token
-                )
-                if error_response:
-                    # 记录API日志 - 血压数据疑似编造
-                    try:
-                        # 获取token当前使用次数
-                        current_use_times = get_token_use_times(token)
-                        device_type = ocr_dict["data"]["category"]
 
-                        APILogRepository.log_api_request(
-                            client_ip=client_ip,
-                            token=token,
-                            api_endpoint="/upload/image",
-                            status="failed",
-                            file_upload_id=file_upload_id,
-                            file_name=file.filename,
-                            file_size=len(file_content),
-                            ai_usage=ai_usage_value,
-                            error_message="血压数据疑似编造",
-                            error_code="BLOOD_PRESSURE_FAKE",
-                            token_usetimes=current_use_times,
-                            device_type=device_type,
-
-                        )
-                    except Exception as log_error:
-                        print(f"记录API日志失败: {str(log_error)}")
-                    return error_response
 
                 # 替换日期为当前日期
                 ocr_dict["data"]["measure_date"] = current_date

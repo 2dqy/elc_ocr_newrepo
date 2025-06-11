@@ -77,11 +77,10 @@ def check_blood_pressure_validity(ocr_dict, current_date=None, client_ip=None, a
             if "blood_sugar" in ocr_dict["data"]:
                 blood_sugar = ocr_dict["data"]["blood_sugar"]
                 
-                # 检查血糖值是否为空、null或包含错误代码E/e
-                if (not blood_sugar or 
-                    blood_sugar == "null" or 
-                    blood_sugar == "" or
-                    ('E' in str(blood_sugar) or 'e' in str(blood_sugar))):
+                error_indicators = ["null", "", "e", "E", "l", "L"]
+
+                # Check if blood_sugar is empty, null, or contains any of the error indicators
+                if (not blood_sugar or any(indicator in str(blood_sugar) for indicator in error_indicators)):
                     
                     print(f"血糖数据无效: blood_sugar={blood_sugar}")
                     

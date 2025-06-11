@@ -1,6 +1,6 @@
 """
 OCR模型提示词配置文件
-包含千问和OpenAI模型的提示词
+包含千问、OpenAI和Gemini模型的提示词
 """
 def get_openai_prompt() -> str:
     """获取OpenAI模型的提示词"""
@@ -77,6 +77,60 @@ def get_qwen_prompt() -> str:
     10. 注意小數點，錯了會世界末日。
     11. 嘗試根據格式規律（血糖值通常介於 0.0 到 20.0）來做小數推論。
     12. 這可能一張血糖測試儀的螢幕照片。請辨識畫面中的數字值，並注意數字中可能有小數點，尤其數值應該合理在 0 到 20 之間。請特別檢查「1.5」和「15」的差別，小數點若難以分辨，也請根據螢幕樣式或格式合理推斷
+"""
+
+
+def get_gemini_prompt() -> str:
+    """获取Gemini模型的提示词"""
+    return """Please carefully analyze the uploaded image, perform the following steps and return the result:
+
+1. Image relevance judgment:
+- First determine whether the image contains the display or data of a blood pressure meter or blood glucose meter.
+- If the image does not contain blood pressure meter or blood glucose meter related content (for example, landscape photos, portrait photos or other irrelevant pictures), please return the data in the following JSON format:
+"data": {
+"category": "Not relevant"
+}
+Subsequent prompt words can be ignored
+
+2. Device type judgment:
+- Blood pressure meter data: systolic pressure (SYS), diastolic pressure (DIA), heart rate (PUL)
+- Blood glucose meter data: blood glucose value
+
+3. Information of interest:
+- Medical device brand and model
+- Measurement time (extracted from the image, format HH:mm:ss, if it cannot be extracted, null is returned)
+- Measurement value
+
+Please return the data in the following JSON format:
+"data": {
+"brand": "Device brand",
+"measure_date": "Current date",
+"measure_time": "Measurement time in the image",
+"category": "blood_pressure or blood_sugar or Not relevant",
+"blood_pressure": {
+"sys": "Systolic pressure value",
+"dia": "Diastolic pressure value",
+"pul": "heart rate value"
+},
+"blood_sugar": "blood sugar value",
+"other_value": "other data",
+"suggest": "data-based AI health advice",
+"analyze_reliability": 0.95,
+"status": "analysis status (e.g. 'completed', 'failed')"
+}
+Notes:
+1. If it is blood pressure data, the blood_sugar field is set to null
+2. If it is blood sugar data, all fields of the blood_pressure object are set to null
+3. The time must be extracted from the image, and null is returned if it cannot be extracted
+4. Please give professional health advice based on the value
+5. Ensure that the analysis is accurate and do not fabricate data
+6. If the image does not contain blood pressure meter or blood glucose meter data, set category to "Not relevant".
+7. If a large number looks obviously unreasonable (such as 179 mmol/L), please judge whether it is likely to be 17.9.
+8. Try to make decimal inferences based on the format (blood sugar values are usually between 2.0 and 20.0).
+9. If a large number seems obviously unreasonable (such as 179 mmol/L), please judge whether it is likely to be 17.9.
+10. Pay attention to decimal points. If you get it wrong, it will be the end of the world.
+11. Try to make decimal inferences based on the format (blood sugar values are usually between 0.0 and 20.0).
+12. This may be a picture of a blood sugar tester screen. Please identify the numerical value on the screen and pay attention to the possibility of decimal points in the number, especially the number should be reasonably between 0 and 20. Please check the difference between "1.5" and "15" in particular. If the decimal point is difficult to distinguish, please make a reasonable inference based on the screen style or format.
 """
 
 
