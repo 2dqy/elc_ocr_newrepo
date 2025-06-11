@@ -14,7 +14,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 
 # 导入图像处理函数和提示词
-from .image_fun import compress_image, correct_image_orientation, enhance_image_for_ocr
+from .image_fun import compress_image, correct_image_orientation
 from .prompts import get_qwen_prompt, get_openai_prompt, get_gemini_prompt
 
 
