@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.api.v1.app import router as v1_router  # 引入定义的router
-from app.api.v1.dashboard import router as dashboard_router  # 引入Dashboard router
+# from app.api.v1.dashboard import router as dashboard_router  # 引入Dashboard router
 
 from pathlib import Path
 
@@ -30,7 +30,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # 注册接口
 app.include_router(v1_router)
-app.include_router(dashboard_router)  # 注册Dashboard API
+# app.include_router(dashboard_router)  # 注册Dashboard API
 
 @app.get("/")
 async def health_check():
