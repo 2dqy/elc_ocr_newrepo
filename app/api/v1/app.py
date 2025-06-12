@@ -459,6 +459,12 @@ async def upload_image(
                             blood_sugar_value = blood_sugar_value / 18
                             print(f"血糖单位转换(mg->mmol/L): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
+                        # 血糖值大于20，使用标准转换（除以18）
+                        if blood_sugar_value > 20:
+                            blood_sugar_value = blood_sugar_value / 18
+                            print(f"血糖值大于20，使用标准转换(除以18): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+
+
                         # 添加mmol/L单位
                         ocr_dict["data"]["blood_sugar"] = f"{blood_sugar_value:.1f}mmol/L"
 
