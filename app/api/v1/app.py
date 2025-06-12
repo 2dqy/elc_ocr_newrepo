@@ -426,6 +426,7 @@ async def upload_image(
             if "blood_sugar" in ocr_dict["data"] and ocr_dict["data"]["blood_sugar"]:
                 bs_value = ocr_dict["data"]["blood_sugar"]
                 other_value = ocr_dict["data"].get("other_value", "")
+                suggest_value = ocr_dict["data"].get("suggest", "")
 
                 if bs_value and bs_value != "null":
                     try:
@@ -436,7 +437,11 @@ async def upload_image(
 
                         # 检查是否包含mg单位（从blood_sugar或other_value中）
                         has_mg_unit = False
-                        if "mg" in value_str.lower() or (other_value and "mg" in str(other_value).lower()):
+                        if (
+                                "mg" in value_str.lower() or
+                                (other_value and "mg/" in str(other_value).lower()) or
+                                (suggest_value and "mg/" in str(suggest_value).lower())  # 新增的检查
+                        ):
                             has_mg_unit = True
                             print(f"检测到mg单位")
 
@@ -459,10 +464,10 @@ async def upload_image(
                             blood_sugar_value = blood_sugar_value / 18
                             print(f"血糖单位转换(mg->mmol/L): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
-                        # 血糖值大于20，使用标准转换（除以18）
-                        if blood_sugar_value > 20:
-                            blood_sugar_value = blood_sugar_value / 18
-                            print(f"血糖值大于20，使用标准转换(除以18): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
+                        # # 血糖值大于20，使用标准转换（除以18）
+                        # if blood_sugar_value > 20:
+                        #     blood_sugar_value = blood_sugar_value / 18
+                        #     print(f"血糖值大于20，使用标准转换(除以18): {bs_value} -> {blood_sugar_value:.1f}mmol/L")
 
 
                         # 添加mmol/L单位
