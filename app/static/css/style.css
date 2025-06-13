@@ -1,19 +1,37 @@
-/* 全局样式 */
+/* 全局样式 - Supabase风格设计系统 */
 :root {
-    --primary-color: #4285f4;
-    --primary-dark: #3367d6;
-    --secondary-color: #34a853;
-    --accent-color: #ea4335;
-    --light-color: #f8f9fa;
-    --dark-color: #202124;
-    --gray-color: #5f6368;
-    --light-gray: #dadce0;
-    --shadow-color: rgba(0, 0, 0, 0.1);
-    --card-radius: 8px;
-    --transition-time: 0.3s;
-    --success-color: #8ef3a8;
-    --warning-color: #fbbc04;
-    --error-color: #ea4335;
+    /* 主色调 - 黑白灰系统 */
+    --primary-color: #1a1a1a;
+    --primary-dark: #000000;
+    --secondary-color: #6b7280;
+    --accent-color: #374151;
+    --light-color: #ffffff;
+    --dark-color: #111827;
+    --gray-color: #6b7280;
+    --light-gray: #e5e7eb;
+    --border-color: #d1d5db;
+    --muted-gray: #f9fafb;
+    
+    /* Supabase风格阴影 */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-color: rgba(0, 0, 0, 0.08);
+    
+    /* 圆角和过渡 */
+    --card-radius: 12px;
+    --button-radius: 8px;
+    --input-radius: 6px;
+    --transition-time: 0.15s;
+    
+    /* 状态颜色 - 保持功能性但适配黑白灰 */
+    --success-color: #4b5563;
+    --warning-color: #6b7280;
+    --error-color: #374151;
+    
+    /* Typography */
+    --font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 * {
@@ -23,76 +41,227 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.6;
+    font-family: var(--font-family);
+    line-height: 1.5;
     color: var(--dark-color);
-    background-color: #f5f7fa;
+    background-color: var(--muted-gray);
     min-height: 100vh;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+}
+
+/* 🎯 儀表板容器 */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+    background: var(--muted-gray);
+}
+
+/* 🎨 側邊欄樣式 */
+.sidebar {
+    width: 280px;
+    background: var(--light-color);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
 }
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    width: 100%;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+.sidebar-header {
+    padding: 19px 50px;
+    border-bottom: 1px solid var(--border-color);
 }
 
-/* 头部样式 */
-header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px 0;
-}
-
-header h1 {
-    color: var(--primary-color);
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-}
-
-header p {
-    color: var(--gray-color);
-    font-size: 1.1rem;
-    margin-bottom: 25px;
-}
-
-/* 選項卡樣式 */
-.tab-container {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.tab-btn {
-    padding: 12px 24px;
-    border: 2px solid var(--light-gray);
-    background: white;
-    color: var(--gray-color);
-    border-radius: 25px;
-    cursor: pointer;
-    transition: all var(--transition-time);
-    font-size: 1rem;
-    font-weight: 500;
+.logo {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.tab-btn:hover {
-    border-color: var(--primary-color);
+    gap: 12px;
+    font-size: 28px;
+    font-weight: 600;
     color: var(--primary-color);
 }
 
-.tab-btn.active {
+.logo i {
+    font-size: 24px;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 24px 0;
+}
+
+.nav-section {
+    margin-bottom: 32px;
+}
+
+.nav-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    padding: 0 20px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    margin: 2px 12px;
+    border: none;
+    background: none;
+    color: var(--gray-color);
+    cursor: pointer;
+    border-radius: var(--input-radius);
+    transition: all var(--transition-time) ease;
+    font-size: 14px;
+    font-weight: 500;
+    width: calc(100% - 24px);
+    text-align: left;
+}
+
+.nav-item:hover {
+    background: var(--muted-gray);
+    color: var(--primary-color);
+}
+
+.nav-item.active {
     background: var(--primary-color);
-    border-color: var(--primary-color);
-    color: white;
+    color: var(--light-color);
+}
+
+.nav-item i {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.nav-info {
+    padding: 0 20px;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.info-item i {
+    font-size: 14px;
+    color: var(--gray-color);
+    margin-top: 2px;
+}
+
+.info-content {
+    flex: 1;
+}
+
+.info-label {
+    font-size: 12px;
+    color: var(--gray-color);
+    margin-bottom: 2px;
+}
+
+.info-value {
+    font-size: 13px;
+    color: var(--dark-color);
+    font-weight: 500;
+}
+
+/* 🎯 主內容區域 */
+.main-content {
+    flex: 1;
+    margin-left: 280px;
+    background: var(--muted-gray);
+    min-height: 100vh;
+}
+
+.content-header {
+    background: var(--light-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 24px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.header-content {
+    max-width: 1200px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+}
+
+.page-description {
+    font-size: 16px;
+    color: var(--gray-color);
+    margin: 0;
+}
+
+.content-grid {
+    padding: 32px;
+}
+
+/* 🎯 儀表板網格系統 */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    max-width: 1200px;
+    transition: all var(--transition-time) ease;
+}
+
+/* 🎯 分析結果顯示時的分栏布局 */
+.dashboard-grid.split-layout {
+    grid-template-columns: 380px 1fr;
+    gap: 32px;
+}
+
+/* 分栏模式下的圖像上傳區域優化 */
+.split-layout .upload-container {
+    min-height: 160px;
+    padding: 24px 16px;
+}
+
+.split-layout .upload-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.split-layout .upload-content p {
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.split-layout .upload-hint {
+    font-size: 12px;
+}
+
+.grid-item {
+    min-width: 0; /* 防止內容溢出 */
+}
+
+.grid-span-2 {
+    grid-column: span 2;
+}
+
+/* 分栏模式下移除span-2效果 */
+.split-layout .grid-span-2 {
+    grid-column: span 1;
 }
 
 /* 選項卡內容樣式 */
@@ -104,53 +273,70 @@ header p {
     display: block;
 }
 
-/* 主体内容样式 */
-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
+/* 🎨 卡片系統 */
+.card {
+    background: var(--light-color);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all var(--transition-time) ease;
+    height: fit-content;
 }
 
-.card {
-    background: white;
-    border-radius: var(--card-radius);
-    box-shadow: 0 4px 20px var(--shadow-color);
-    overflow: hidden;
+.card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.card-header {
+    padding: 20px 24px 0 24px;
+    border-bottom: none;
+}
+
+.card-header h3 {
+    color: var(--primary-color);
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px 0;
+    letter-spacing: -0.01em;
 }
 
 .card-body {
-    padding: 30px;
+    padding: 0 24px 24px 24px;
 }
 
-.card h2 {
-    color: var(--primary-color);
-    margin-bottom: 25px;
-    font-size: 1.8rem;
+.header-flex {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
-/* 上传区域样式 */
+/* 上传区域样式 - Supabase风格 */
 .upload-container {
-    border: 2px dashed var(--light-gray);
+    border: 2px dashed var(--border-color);
     border-radius: var(--card-radius);
-    padding: 40px 20px;
+    padding: 32px 20px;
     text-align: center;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     cursor: pointer;
-    transition: all var(--transition-time);
+    transition: all var(--transition-time) ease;
     position: relative;
-    min-height: 200px;
+    min-height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--light-color);
 }
 
 .upload-container:hover {
     border-color: var(--primary-color);
-    background-color: rgba(66, 133, 244, 0.03);
+    background-color: var(--muted-gray);
 }
 
 .upload-content {
@@ -158,15 +344,15 @@ main {
 }
 
 .upload-icon {
-    font-size: 3rem;
-    color: var(--primary-color);
-    margin-bottom: 15px;
+    font-size: 48px;
+    color: var(--gray-color);
+    margin-bottom: 12px;
 }
 
 .upload-hint {
-    font-size: 0.9rem;
+    font-size: 13px;
     color: var(--gray-color);
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 .image-preview {
@@ -208,73 +394,93 @@ main {
 }
 
 .form-group {
-    margin-bottom: 25px;
+    margin-bottom: 16px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 500;
-    color: var(--gray-color);
+    color: var(--dark-color);
+    font-size: 14px;
 }
 
 .form-group input {
     width: 100%;
-    padding: 12px 15px;
-    border: 1px solid var(--light-gray);
-    border-radius: 4px;
-    font-size: 1rem;
-    transition: all var(--transition-time);
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    font-size: 14px;
+    transition: all var(--transition-time) ease;
+    background: var(--light-color);
 }
 
 .form-group input:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.05);
 }
 
-/* 按钮样式 */
+.form-group input:hover {
+    border-color: var(--secondary-color);
+}
+
+/* 按钮样式 - Supabase风格 */
 .btn {
-    padding: 12px 24px;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--button-radius);
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all var(--transition-time);
+    transition: all var(--transition-time) ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
+    white-space: nowrap;
+    text-decoration: none;
 }
 
 .primary-btn {
     background-color: var(--primary-color);
-    color: white;
+    color: var(--light-color);
+    box-shadow: var(--shadow-sm);
 }
 
 .primary-btn:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md);
 }
 
 .primary-btn:disabled {
     background-color: var(--light-gray);
     color: var(--gray-color);
     cursor: not-allowed;
-    transform: none;
     box-shadow: none;
 }
 
 .secondary-btn {
     background-color: var(--light-color);
     color: var(--primary-color);
-    border: 1px solid var(--primary-color);
+    border: 1px solid var(--border-color);
 }
 
 .secondary-btn:hover {
-    background-color: rgba(66, 133, 244, 0.1);
+    background-color: var(--muted-gray);
+    border-color: var(--primary-color);
+}
+
+.full-width {
+    width: 100%;
+}
+
+/* 🎯 按鈕組 */
+.button-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
 }
 
 /* 结果区域样式 */
@@ -345,23 +551,23 @@ main {
     transition: width 1s ease-in-out;
 }
 
-/* 加载动画 */
+/* 加载动画 - Supabase风格 */
 .loader {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 32px 20px;
 }
 
 .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid var(--light-gray);
-    border-top: 5px solid var(--primary-color);
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border-color);
+    border-top: 2px solid var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 @keyframes spin {
@@ -413,56 +619,103 @@ footer {
     margin-top: 30px;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .card-body {
-        padding: 20px;
-    }
-    
-    header h1 {
-        font-size: 2rem;
-    }
-    
-    .result-grid {
+/* 📱 響應式設計 */
+@media (max-width: 1024px) {
+    .dashboard-grid {
         grid-template-columns: 1fr;
     }
     
-    .btn {
+    .dashboard-grid.split-layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    
+    .grid-span-2 {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform var(--transition-time) ease;
+    }
+    
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .content-header {
+        padding: 16px 20px;
+    }
+    
+    .content-grid {
+        padding: 20px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+    }
+    
+    .card-header {
+        padding: 16px 20px 0 20px;
+    }
+    
+    .card-body {
+        padding: 0 20px 20px 20px;
+    }
+    
+    .dashboard-grid {
+        gap: 16px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .button-group .btn {
         width: 100%;
     }
 }
 
-/* 拖拽状态样式 */
+/* 拖拽状态样式 - Supabase风格 */
 .dragover {
     border-color: var(--primary-color);
-    background-color: rgba(66, 133, 244, 0.08);
-    transform: scale(1.01);
+    background-color: var(--muted-gray);
+    transform: none;
+    box-shadow: var(--shadow-md);
 }
 
 .json-display {
-    background: #f8f9fa;
-    border: 1px solid var(--light-gray);
-    border-radius: 4px;
-    padding: 15px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
+    background: var(--muted-gray);
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.4;
     white-space: pre-wrap;
-    max-height: 400px;
+    max-height: 436px;
     overflow-y: auto;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    color: var(--dark-color);
 }
 
-/* Token管理樣式 */
+/* Token管理樣式 - Supabase风格 */
 .form-hint {
     display: block;
-    font-size: 0.85rem;
+    font-size: 12px;
     color: var(--gray-color);
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 .required {
-    color: var(--error-color);
-    font-weight: bold;
+    color: var(--accent-color);
+    font-weight: 600;
 }
 
 /* Token結果樣式 */
@@ -576,32 +829,32 @@ footer {
     margin-bottom: 15px;
 }
 
-/* 響應式設計增強 */
+/* 🎯 移動端導航增強 */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 200;
+    background: var(--primary-color);
+    color: var(--light-color);
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--button-radius);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+}
+
 @media (max-width: 768px) {
-    .tab-container {
-        flex-direction: column;
+    .mobile-menu-btn {
+        display: flex;
         align-items: center;
-        gap: 8px;
-    }
-    
-    .tab-btn {
-        width: 200px;
         justify-content: center;
     }
     
-    .info-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-    
-    .token-value {
-        margin: 0;
-        width: 100%;
-    }
-    
-    .copy-btn {
-        align-self: flex-end;
+    .content-header {
+        padding-left: 80px;
     }
 }
 
@@ -616,16 +869,17 @@ footer {
 }
 
 .execution-time {
-    background: linear-gradient(135deg, var(--success-color), #8aeaa0);
-    color: #363636;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9rem;
+    background: var(--light-color);
+    color: var(--dark-color);
+    padding: 6px 12px;
+    border-radius: var(--input-radius);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 6px;
-    box-shadow: 0 2px 8px rgba(52, 168, 83, 0.3);
+    box-shadow: var(--shadow-sm);
     animation: fadeInScale 0.5s ease-out;
 }
 

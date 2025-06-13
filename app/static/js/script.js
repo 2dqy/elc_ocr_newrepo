@@ -7,8 +7,10 @@
 let API_BASE_URL = '';
 
 // DOM元素 - 通用
-const tabBtns = document.querySelectorAll('.tab-btn');
+const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.querySelector('.sidebar');
 
 // DOM元素 - 图像分析
 const dropZone = document.getElementById('dropZone');
@@ -81,21 +83,60 @@ async function loadConfig() {
  */
 async function initApp() {
     await loadConfig();
-    initTabs();
+    initNavigation();
+    initMobileMenu();
     initUploadArea();
     initTokenManagement();
 }
 
 /**
- * 初始化選項卡功能
+ * 初始化導航功能
  */
-function initTabs() {
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetTab = btn.getAttribute('data-tab');
+function initNavigation() {
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const targetTab = item.getAttribute('data-tab');
             switchTab(targetTab);
+            // 在移動端點擊導航後關閉側邊欄
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
         });
     });
+}
+
+/**
+ * 初始化移動端菜單
+ */
+function initMobileMenu() {
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+    }
+    
+    // 點擊側邊欄外部區域關閉菜單
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 768 && sidebar && !sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+            closeMobileMenu();
+        }
+    });
+}
+
+/**
+ * 切換移動端菜單
+ */
+function toggleMobileMenu() {
+    if (sidebar) {
+        sidebar.classList.toggle('mobile-open');
+    }
+}
+
+/**
+ * 關閉移動端菜單
+ */
+function closeMobileMenu() {
+    if (sidebar) {
+        sidebar.classList.remove('mobile-open');
+    }
 }
 
 /**
@@ -103,12 +144,15 @@ function initTabs() {
  */
 function switchTab(targetTab) {
     // 移除所有活動狀態
-    tabBtns.forEach(btn => btn.classList.remove('active'));
+    navItems.forEach(item => item.classList.remove('active'));
     tabContents.forEach(content => content.classList.remove('active'));
 
     // 添加活動狀態到目標選項卡
-    document.querySelector(`[data-tab="${targetTab}"]`).classList.add('active');
-    document.getElementById(`${targetTab}Tab`).classList.add('active');
+    const targetNavItem = document.querySelector(`[data-tab="${targetTab}"]`);
+    const targetContent = document.getElementById(`${targetTab}Tab`);
+    
+    if (targetNavItem) targetNavItem.classList.add('active');
+    if (targetContent) targetContent.classList.add('active');
 
     // 重置相關狀態
     if (targetTab === 'analysis') {
@@ -550,6 +594,12 @@ function uploadImage() {
     loader.style.display = 'flex';
     resultContent.style.display = 'none';
     
+    // 启用分栏布局
+    const dashboardGrid = document.querySelector('#analysisTab .dashboard-grid');
+    if (dashboardGrid) {
+        dashboardGrid.classList.add('split-layout');
+    }
+    
     // 隐藏耗时显示
     const executionTimeDiv = document.getElementById('executionTime');
     if (executionTimeDiv) {
@@ -683,6 +733,12 @@ function resetAnalysis() {
     const executionTimeDiv = document.getElementById('executionTime');
     if (executionTimeDiv) {
         executionTimeDiv.style.display = 'none';
+    }
+    
+    // 移除分栏布局，恢复居中布局
+    const dashboardGrid = document.querySelector('#analysisTab .dashboard-grid');
+    if (dashboardGrid) {
+        dashboardGrid.classList.remove('split-layout');
     }
     
     resetImageSelection();

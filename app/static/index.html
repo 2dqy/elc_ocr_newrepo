@@ -9,147 +9,190 @@
     <link rel="shortcut icon" type="image/png" href="/static/icon.png">
     <link rel="stylesheet" href="/static/css/style.css">
     <!-- 添加FontAwesome图标库 -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-<!--     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css"> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!--     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css"> -->
 
 </head>
 <body>
-<div class="container">
-    <header>
-        <h1><i class="fas fa-heartbeat"></i> 醫療影像分析系統</h1>
-        <h2><i class=""></i> 最後更新時間： 2025-06-11 18:00</h2>
-        <p>上傳醫療設備影像，快速辨識血壓、血糖等訊息</p>
-
-
-        <!-- 功能切換選項卡 -->
-        <div class="tab-container">
-            <button class="tab-btn active" data-tab="analysis">
-                <i class="fas fa-image"></i> 影像分析
-            </button>
-            <button class="tab-btn" data-tab="token">
-                <i class="fas fa-key"></i> Token管理
-            </button>
-        </div>
-    </header>
-
-    <main>
-        <!-- Token管理功能區 -->
-        <div id="tokenTab" class="tab-content">
-            <section class="token-section">
-                <div class="card">
-                    <div class="card-body">
-                        <h2><i class="fas fa-plus-circle"></i> 創建新Token</h2>
-
-                        <div class="form-group">
-                            <label for="centerIdInput"><i class="fas fa-building"></i> 中心ID <span
-                                    class="required">*</span></label>
-                            <input type="text" id="centerIdInput" placeholder="請輸入中心ID" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="customTokenInput"><i class="fas fa-key"></i> 自定義Token（可選）</label>
-                            <input type="text" id="customTokenInput" placeholder="留空則自動生成10位隨機Token">
-                            <small class="form-hint">只能包含字母和數字</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="useTimesInput"><i class="fas fa-hashtag"></i> 使用次數</label>
-                            <input type="number" id="useTimesInput" value="10" min="1" max="1000">
-                            <small class="form-hint">預設為10次</small>
-                        </div>
-
-                        <button id="createTokenBtn" class="btn primary-btn">
-                            <i class="fas fa-plus"></i> 創建Token
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="token-result-section" id="tokenResultSection" style="display: none;">
-                <div class="card">
-                    <div class="card-body">
-                        <h2><i class="fas fa-check-circle"></i> Token創建結果</h2>
-                        <div class="token-loader" id="tokenLoader">
-                            <div class="spinner"></div>
-                            <p>創建中，請稍候...</p>
-                        </div>
-
-                        <div id="tokenResultContent" style="display: none;">
-                            <pre id="tokenJsonResult" class="json-display"></pre>
-
-                            <button id="copyTokenBtn" class="btn secondary-btn" style="margin-right: 10px;">
-                                <i class="fas fa-copy"></i> 複製Token
-                            </button>
-                            <button id="newTokenBtn" class="btn secondary-btn">
-                                <i class="fas fa-plus"></i> 創建新Token
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+<div class="dashboard-container">
+    <!-- 移動端菜單按鈕 -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+    <!-- 側邊欄導航 -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-text">2dqy</span>
+            </div>
         </div>
 
-        <!-- 影像分析功能區 -->
-        <div id="analysisTab" class="tab-content active">
-            <section class="upload-section">
-                <div class="card">
-                    <div class="card-body">
-                        <h2><i class="fas fa-upload"></i> 圖像上傳</h2>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-title">主要功能</div>
+                <button class="nav-item active" data-tab="analysis">
+                    <i class="fas fa-image"></i>
+                    <span>影像分析</span>
+                </button>
+                <button class="nav-item" data-tab="token">
+                    <i class="fas fa-key"></i>
+                    <span>Token管理</span>
+                </button>
+            </div>
 
-                        <div class="upload-container" id="dropZone">
-                            <div class="upload-content" id="uploadContent">
-                                <i class="fas fa-file-medical-alt upload-icon"></i>
-                                <p>拖放圖像到此處或點擊選擇文件</p>
-                                <p class="upload-hint">請使用JPG、PNG、JPEG格式，盡量小於500KB</p>
-                            </div>
-
-                            <div class="image-preview" id="imagePreview" style="display: none;">
-                                <img id="previewImg" src="" alt="預覽圖像">
-                                <button class="remove-btn" id="removeImage"><i class="fas fa-times"></i></button>
-                            </div>
-
-                            <input type="file" id="fileInput" accept="image/*" hidden>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tokenInput"><i class="fas fa-key"></i> 驗證Token</label>
-                            <input type="text" id="tokenInput" placeholder="請輸入您的Token" required>
-                        </div>
-
-                        <button id="uploadButton" class="btn primary-btn" disabled>
-                            <i class="fas fa-paper-plane"></i> 開始分析
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="result-section" id="resultSection" style="display: none;">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="result-header">
-                            <h2><i class="fas fa-chart-line"></i> 分析結果</h2>
-                            <div id="executionTime" class="execution-time" style="display: none;">
-                                <i class="fas fa-clock"></i> 總耗時：<span id="timeValue">0</span>秒
-                            </div>
-                        </div>
-                        <div class="loader" id="loader">
-                            <div class="spinner"></div>
-                            <p>分析中，請稍候...</p>
-                        </div>
-
-                        <div id="resultContent" style="display: none;">
-                            <pre id="jsonResult" class="json-display"></pre>
-
-                            <button id="newAnalysisBtn" class="btn secondary-btn">
-                                <i class="fas fa-redo"></i> 新的分析
-                            </button>
+            <div class="nav-section">
+                <div class="nav-title">系統資訊</div>
+                <div class="nav-info">
+                    <div class="info-item">
+                        <i class="fas fa-clock"></i>
+                        <div class="info-content">
+                            <div class="info-label">最後更新</div>
+                            <div class="info-value">2025-06-11 18:00</div>
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- 主內容區域 -->
+    <main class="main-content">
+        <header class="content-header">
+            <div class="header-content" style="display: flex; align-items: center;">
+                <h1 class="fas fa-heartbeat page-title" style="margin-right: 10px;">醫療影像分析系統</h1>
+                <p class="page-description" style="margin: 0; padding-left: 40px">上傳醫療設備影像，快速辨識血壓、血糖等訊息</p>
+            </div>
+        </header>
+
+
+        <div class="content-grid">
+            <!-- Token管理功能區 -->
+            <div id="tokenTab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="grid-item">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-plus-circle"></i> 創建新Token</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="centerIdInput"><i class="fas fa-building"></i> 中心ID <span
+                                            class="required">*</span></label>
+                                    <input type="text" id="centerIdInput" placeholder="請輸入中心ID" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="customTokenInput"><i class="fas fa-key"></i> 自定義Token（可選）</label>
+                                    <input type="text" id="customTokenInput" placeholder="留空則自動生成10位隨機Token">
+                                    <small class="form-hint">只能包含字母和數字</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="useTimesInput"><i class="fas fa-hashtag"></i> 使用次數</label>
+                                    <input type="number" id="useTimesInput" value="10" min="1" max="1000">
+                                    <small class="form-hint">預設為10次</small>
+                                </div>
+
+                                <button id="createTokenBtn" class="btn primary-btn">
+                                    <i class="fas fa-plus"></i> 創建Token
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-item" id="tokenResultSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-check-circle"></i> Token創建結果</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="token-loader" id="tokenLoader">
+                                    <div class="spinner"></div>
+                                    <p>創建中，請稍候...</p>
+                                </div>
+
+                                <div id="tokenResultContent" style="display: none;">
+                                    <pre id="tokenJsonResult" class="json-display"></pre>
+                                    <div class="button-group">
+                                        <button id="copyTokenBtn" class="btn secondary-btn">
+                                            <i class="fas fa-copy"></i> 複製Token
+                                        </button>
+                                        <button id="newTokenBtn" class="btn secondary-btn">
+                                            <i class="fas fa-plus"></i> 創建新Token
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 影像分析功能區 -->
+            <div id="analysisTab" class="tab-content active">
+                <div class="dashboard-grid">
+                    <div class="grid-item">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-upload"></i> 圖像上傳</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="upload-container" id="dropZone">
+                                    <div class="upload-content" id="uploadContent">
+                                        <i class="fas fa-file-medical-alt upload-icon"></i>
+                                        <p>拖放圖像到此處或點擊選擇文件</p>
+                                        <p class="upload-hint">請使用JPG、PNG、JPEG格式，盡量小於500KB</p>
+                                    </div>
+
+                                    <div class="image-preview" id="imagePreview" style="display: none;">
+                                        <img id="previewImg" src="" alt="預覽圖像">
+                                        <button class="remove-btn" id="removeImage"><i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+
+                                    <input type="file" id="fileInput" accept="image/*" hidden>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="tokenInput"><i class="fas fa-key"></i> 驗證Token</label>
+                                    <input type="text" id="tokenInput" placeholder="請輸入您的Token" required>
+                                </div>
+
+                                <button id="uploadButton" class="btn primary-btn full-width" disabled>
+                                    <i class="fas fa-paper-plane"></i> 開始分析
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-item grid-span-2" id="resultSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="header-flex">
+                                    <h3><i class="fas fa-chart-line"></i> 分析結果</h3>
+                                    <div id="executionTime" class="execution-time" style="display: none;">
+                                        <i class="fas fa-clock"></i> 總耗時：<span id="timeValue">0</span>秒
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="loader" id="loader">
+                                    <div class="spinner"></div>
+                                    <p>分析中，請稍候...</p>
+                                </div>
+
+                                <div id="resultContent" style="display: none;">
+                                    <pre id="jsonResult" class="json-display"></pre>
+                                    <button id="newAnalysisBtn" class="btn secondary-btn">
+                                        <i class="fas fa-redo"></i> 新的分析
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-
     </main>
 </div>
 
