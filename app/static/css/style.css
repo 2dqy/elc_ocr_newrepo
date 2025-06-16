@@ -62,7 +62,7 @@ body {
 
 /* 🎨 側邊欄樣式 */
 .sidebar {
-    width: 280px;
+    width: 240px;
     background: var(--light-color);
     border-right: 1px solid var(--border-color);
     display: flex;
@@ -74,13 +74,14 @@ body {
 }
 
 .sidebar-header {
-    padding: 19px 50px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 10px 10px;
+    /*border-bottom: 1px solid var(--border-color);*/
 }
 
 .logo {
     display: flex;
     align-items: center;
+    justify-content: center; /* **新增：水平居中** */
     gap: 12px;
     font-size: 28px;
     font-weight: 600;
@@ -89,6 +90,12 @@ body {
 
 .logo i {
     font-size: 24px;
+}
+.logo-image {
+    max-width: 100%; /* 防止图片超出容器 */
+    height: auto; /* 保持图片比例 */
+    /* 你可能还需要根据需要添加其他样式，比如宽度、高度等 */
+    width: 120px; /* 示例：设置固定宽度 */
 }
 
 .sidebar-nav {
@@ -180,7 +187,7 @@ body {
 /* 🎯 主內容區域 */
 .main-content {
     flex: 1;
-    margin-left: 280px;
+    margin-left: 240px;
     background: var(--muted-gray);
     min-height: 100vh;
 }
@@ -213,7 +220,7 @@ body {
 }
 
 .content-grid {
-    padding: 32px;
+    padding: 50px;
 }
 
 /* 🎯 儀表板網格系統 */
@@ -327,7 +334,7 @@ body {
     cursor: pointer;
     transition: all var(--transition-time) ease;
     position: relative;
-    min-height: 180px;
+    min-height: 300px;
     display: flex;
     align-items: center;
     justify-content: center;
