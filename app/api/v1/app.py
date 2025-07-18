@@ -914,3 +914,21 @@ async def get_config():
     }
 
 # 原来的健康检查接口改为新的路径
+
+@router.get("/email")
+async def test_email():
+    """
+    测试邮件功能的端点
+    发送测试邮件并显示成功页面
+    """
+    from app.services import email_send
+    
+    # 发送测试邮件，内容为"test"
+    email_send.send_email_in_thread(
+        subject="OCR System: Test Email",
+        content="This is a test email from the OCR system.",
+    )
+    
+    # 返回测试邮件页面
+    file_path = Path(__file__).resolve().parent.parent.parent / "static" / "test-email.html"
+    return FileResponse(file_path)
