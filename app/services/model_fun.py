@@ -6,8 +6,15 @@ import base64
 import io
 import json
 import re
+import asyncio
+import time
+import threading
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple, Optional, List
+from datetime import datetime
+import concurrent.futures
+from functools import partial
+
 import dashscope
 from openai import AzureOpenAI
 from pydantic import BaseModel
@@ -16,6 +23,7 @@ import google.generativeai as genai
 # 导入图像处理函数和提示词
 from .image_fun import compress_image, correct_image_orientation
 from .prompts import get_qwen_prompt, get_openai_prompt, get_gemini_prompt
+from .email_send import send_email_in_thread
 
 
 # Pydantic models for structured output
@@ -249,6 +257,9 @@ class GeminiOCRModel(BaseOCRModel):
         self.api_key = api_key
         genai.configure(api_key=api_key)
         self.model_name = "gemini-2.5-flash-preview-05-20"
+        # 从环境变量获取超时设置，默认60秒
+        self.timeout = int(os.getenv("GEMINI_TIMEOUT", "60"))
+        print(f"Gemini API 超时设置为 {self.timeout} 秒")
 
     def analyze_image(self, image_content: bytes, filename: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """使用Gemini模型分析图像"""
@@ -260,46 +271,145 @@ class GeminiOCRModel(BaseOCRModel):
             ]
 
             model = genai.GenerativeModel(model_name=self.model_name)
-            response = model.generate_content(prompt_parts)
+            
+            # 使用concurrent.futures来实现超时
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(model.generate_content, prompt_parts)
+                try:
+                    # 等待API响应，最多等待self.timeout秒
+                    response = future.result(timeout=self.timeout)
+                    
+                    ocr_result, _ = self.extract_result(response)
 
-            ocr_result, _ = self.extract_result(response)
+                    # 提取Gemini模型的usage信息
+                    usage_info = {}
+                    if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                        usage_info = {
+                            "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0),
+                            "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0),
+                            "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0)
+                        }
 
-            # 提取Gemini模型的usage信息
-            usage_info = {}
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                usage_info = {
-                    "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0),
-                    "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0),
-                    "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0)
-                }
-
-            return ocr_result, usage_info
+                    return ocr_result, usage_info
+                    
+                except concurrent.futures.TimeoutError:
+                    # 超时处理 - 立即取消任务
+                    future.cancel()
+                    
+                    error_msg = f" API 调用超时 (>{self.timeout}秒)"
+                    print(f"Gemini API 超时: {error_msg}")
+                    
+                    # 在后台线程中处理邮件发送，不阻塞主流程
+                    def send_email_notification():
+                        email_content = f"""
+Gemini API 调用超时
+------------------
+错误时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+文件名: {filename}
+错误详情: API调用失败
+------------------
+"""
+                        send_email_in_thread(
+                            subject="elc_ocr：gemini api timeout", 
+                            content=email_content
+                        )
+                    
+                    # 启动后台线程处理邮件
+                    email_thread = threading.Thread(target=send_email_notification)
+                    email_thread.daemon = True
+                    email_thread.start()
+                    
+                    # 立即返回错误信息给前端
+                    return {"error": error_msg, "status": "timeout"}, {}
 
         except Exception as e:
-            return {"error": f"Gemini模型调用失败: {str(e)}"}, {}
+            # 普通异常处理 - 立即返回错误
+            error_msg = f"api调用失败: {str(e)}"
+            print(f"Gemini API 错误: {error_msg}")
+            
+            # 在后台线程中处理邮件发送
+            def send_error_notification():
+                email_content = f"""
+Gemini API 调用失败
+------------------
+错误时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+文件名: {filename}
+错误详情: {str(e)}
+------------------
+"""
+                send_email_in_thread(
+                    subject="elc_ocr：gemini api error", 
+                    content=email_content
+                )
+            
+            # 启动后台线程处理邮件
+            email_thread = threading.Thread(target=send_error_notification)
+            email_thread.daemon = True
+            email_thread.start()
+            
+            # 立即返回错误信息给前端
+            return {"error": error_msg, "status": "error"}, {}
 
     def extract_result(self, response: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """从Gemini API响应中提取结果"""
         try:
-            if not response or not response.text:
-                return {"error": "Gemini API返回空响应"}, {}
-
-            raw_result = response.text.strip()
-
-            # 移除代码块标记
-            ocr_result = raw_result.replace('```json', '').replace('```', '').strip()
-
-            # 解析JSON
-            ocr_dict = json.loads(ocr_result)
-
-            # 确保data字段存在
-            if "data" not in ocr_dict:
-                ocr_dict = {"data": ocr_dict}
-
-            return ocr_dict, {}
-
+            # 检查响应是否为空或无效
+            if not response or not hasattr(response, 'text'):
+                return {"error": "无效的 API响应", "status": "error", "data": None}, {}
+            
+            # 尝试从响应中提取JSON
+            try:
+                import json
+                import re
+                
+                # 尝试从文本中提取JSON部分
+                json_match = re.search(r"\{.*\}", response.text, re.DOTALL)
+                if json_match:
+                    result_json = json_match.group()
+                    result = json.loads(result_json)
+                    
+                    # 确保结果包含必要的字段
+                    if not result.get("data"):
+                        result["data"] = {
+                            "category": "error",
+                            "analyze_reliability": 0.0
+                        }
+                    
+                    # 添加状态字段
+                    result["status"] = "success"
+                    return result, {}
+                else:
+                    # 如果没有找到JSON，尝试构建一个基于文本的响应
+                    return {
+                        "data": {
+                            "category": "error",
+                            "analyze_reliability": 0.0,
+                            "other_value": response.text[:100] + "..." if len(response.text) > 100 else response.text
+                        },
+                        "status": "error"
+                    }, {}
+            except json.JSONDecodeError:
+                # JSON解析错误
+                return {
+                    "error": "无法解析 API响应",
+                    "status": "error",
+                    "data": {
+                        "category": "error",
+                        "analyze_reliability": 0.0,
+                        "other_value": response.text[:100] + "..." if len(response.text) > 100 else response.text
+                    }
+                }, {}
+                
         except Exception as e:
-            return {"error": f"Gemini结果解析失败: {str(e)}"}, {}
+            # 捕获所有其他异常
+            return {
+                "error": f"api结果解析失败: {str(e)}",
+                "status": "error",
+                "data": {
+                    "category": "error",
+                    "analyze_reliability": 0.0
+                }
+            }, {}
 
 
 class OCRModelFactory:

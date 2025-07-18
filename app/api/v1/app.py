@@ -4,6 +4,7 @@ import time
 import base64
 import random
 import string
+import threading
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -55,6 +56,7 @@ MIN_PIXELS = int(os.getenv("MIN_PIXELS", 28 * 28 * 4))  # 最小像素阈值
 MAX_PIXELS = int(os.getenv("MAX_PIXELS", 28 * 28 * 8192))  # 最大像素阈值
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 500 * 1024))  # 最大文件大小（500KB）
 ENABLE_IMAGE_ENHANCEMENT = os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true").lower() == "true"  # 是否启用图像增强
+API_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "60"))  # API调用超时时间，默认60秒
 
 # 初始化数据库
 db = Database()
@@ -219,6 +221,9 @@ async def upload_image(
         elif model_type == "gemini":
             # Gemini模型使用原始图像（不需要预处理）
             image_for_analysis = file_content
+            
+            # 为Gemini模型设置超时处理
+            print(f"使用Gemini模型，超时设置为{API_TIMEOUT}秒")
         else:
             # OpenAI模型使用原始图像（在模型内部进行压缩）
             image_for_analysis = file_content
@@ -232,9 +237,52 @@ async def upload_image(
 
             # 检查是否有错误
             if "error" in ocr_dict:
-                # 记录API日志 - OCR分析失败
+                # 如果是超时错误，立即返回响应，不执行任何其他逻辑
+                if "status" in ocr_dict and ocr_dict["status"] == "timeout":
+                    response_data = {
+                        "errors": [
+                            {
+                                "message": ocr_dict["error"],
+                                "extensions": {
+                                    "code": "OCR_TIMEOUT"
+                                }
+                            }
+                        ]
+                    }
+                    
+                    # 在后台记录日志，不阻塞响应
+                    def log_timeout_in_background():
+                        try:
+                            current_use_times = get_token_use_times(token)
+                            APILogRepository.log_api_request(
+                                client_ip=client_ip,
+                                token=token,
+                                api_endpoint="/upload/image",
+                                status="timeout",
+                                file_upload_id=file_upload_id,
+                                file_name=file.filename,
+                                file_size=len(file_content),
+                                error_message=ocr_dict["error"],
+                                error_code="OCR_TIMEOUT",
+                                token_usetimes=current_use_times
+                            )
+                        except Exception as log_error:
+                            print(f"记录API日志失败: {str(log_error)}")
+                    
+                    # 创建一个线程来处理日志记录
+                    import threading
+                    log_thread = threading.Thread(target=log_timeout_in_background)
+                    log_thread.daemon = True
+                    log_thread.start()
+                    
+                    # 立即返回响应
+                    return JSONResponse(content=response_data)
+                
+                # 其他错误的处理逻辑
                 try:
                     current_use_times = get_token_use_times(token)
+                    error_code = "OCR_ERROR"
+                    
                     APILogRepository.log_api_request(
                         client_ip=client_ip,
                         token=token,
@@ -260,6 +308,7 @@ async def upload_image(
                         }
                     ]
                 }
+                
                 return JSONResponse(content=response_data)
 
             # 输出日志
