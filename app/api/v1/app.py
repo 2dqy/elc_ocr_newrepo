@@ -919,12 +919,12 @@ async def get_config():
 async def test_email():
     """
     测试邮件功能的端点
-    发送测试邮件并显示成功页面
+    同步发送测试邮件并显示成功页面
     """
     from app.services import email_send
     
-    # 发送测试邮件，内容为"test"
-    email_send.send_email_in_thread(
+    # 同步发送测试邮件，内容为"test"
+    email_send.send_email(
         subject="OCR System: Test Email",
         content="This is a test email from the OCR system.",
     )

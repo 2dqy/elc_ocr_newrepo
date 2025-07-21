@@ -23,7 +23,7 @@ import google.generativeai as genai
 # 导入图像处理函数和提示词
 from .image_fun import compress_image, correct_image_orientation
 from .prompts import get_qwen_prompt, get_openai_prompt, get_gemini_prompt
-from .email_send import send_email_in_thread
+from .email_send import send_email
 
 
 # Pydantic models for structured output
@@ -299,25 +299,19 @@ class GeminiOCRModel(BaseOCRModel):
                     error_msg = f" API 调用超时 (>{self.timeout}秒)"
                     print(f"Gemini API 超时: {error_msg}")
                     
-                    # 在后台线程中处理邮件发送，不阻塞主流程
-                    def send_email_notification():
-                        email_content = f"""
+                    # 同步发送邮件通知
+                    email_content = f"""
 Gemini API 调用超时
 ------------------
 错误时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 文件名: {filename}
-错误详情: API调用失败
+错误详情: API调用失败，超時时间{self.timeout}秒。
 ------------------
 """
-                        send_email_in_thread(
-                            subject="elc_ocr：gemini api timeout", 
-                            content=email_content
-                        )
-                    
-                    # 启动后台线程处理邮件
-                    email_thread = threading.Thread(target=send_email_notification)
-                    email_thread.daemon = True
-                    email_thread.start()
+                    send_email(
+                        subject="elc_ocr：gemini api timeout", 
+                        content=email_content
+                    )
                     
                     # 立即返回错误信息给前端
                     return {"error": error_msg, "status": "timeout"}, {}
@@ -327,9 +321,8 @@ Gemini API 调用超时
             error_msg = f"api调用失败: {str(e)}"
             print(f"Gemini API 错误: {error_msg}")
             
-            # 在后台线程中处理邮件发送
-            def send_error_notification():
-                email_content = f"""
+            # 同步发送邮件通知
+            email_content = f"""
 Gemini API 调用失败
 ------------------
 错误时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -337,15 +330,10 @@ Gemini API 调用失败
 错误详情: {str(e)}
 ------------------
 """
-                send_email_in_thread(
-                    subject="elc_ocr：gemini api error", 
-                    content=email_content
-                )
-            
-            # 启动后台线程处理邮件
-            email_thread = threading.Thread(target=send_error_notification)
-            email_thread.daemon = True
-            email_thread.start()
+            send_email(
+                subject="elc_ocr：gemini api error", 
+                content=email_content
+            )
             
             # 立即返回错误信息给前端
             return {"error": error_msg, "status": "error"}, {}
