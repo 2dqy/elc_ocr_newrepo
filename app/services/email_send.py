@@ -21,7 +21,7 @@ DEFAULT_SUBJECT = os.getenv("EMAIL_SUBJECT", "elc_ocr：gemini api error")
 DEFAULT_CONTENT = ""
 
 # 收件人列表
-EMAIL_TO = os.getenv("EMAIL_TO", "bbmy85552@gmail.com,13610076450@163.com,bmy_share@163.com").split(",")
+EMAIL_TO = os.getenv("EMAIL_TO").split(",")
 
 def send_email(subject=DEFAULT_SUBJECT, content=DEFAULT_CONTENT, recipients=None):
     """同步发送邮件"""
