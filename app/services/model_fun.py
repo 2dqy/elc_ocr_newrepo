@@ -16,13 +16,13 @@ import concurrent.futures
 from functools import partial
 
 import dashscope
-from openai import AzureOpenAI
+# from openai import AzureOpenAI
 from pydantic import BaseModel
 import google.generativeai as genai
 
 # 导入图像处理函数和提示词
 from .image_fun import compress_image, correct_image_orientation
-from .prompts import get_qwen_prompt, get_openai_prompt, get_gemini_prompt
+from .prompts import get_qwen_prompt, get_gemini_prompt  # , get_openai_prompt
 from .email_send import send_email
 
 
@@ -65,107 +65,107 @@ class BaseOCRModel(ABC):
 
 
 
-class OpenAIOCRModel(BaseOCRModel):
-    """OpenAI OCR模型"""
-    
-    def __init__(self, endpoint: str, api_key: str, api_version: str, deployment: str, model: str):
-        self.client = AzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=api_key
-        )
-        self.deployment = deployment
-        self.model = model
+# class OpenAIOCRModel(BaseOCRModel):
+#     """OpenAI OCR模型"""
+
+#     def __init__(self, endpoint: str, api_key: str, api_version: str, deployment: str, model: str):
+#         self.client = AzureOpenAI(
+#             api_version=api_version,
+#             azure_endpoint=endpoint,
+#             api_key=api_key
+#         )
+#         self.deployment = deployment
+#         self.model = model
 
 
-    def analyze_image(self, image_content: bytes, filename: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """使用OpenAI模型分析图像"""
-        try:
-            # 检查是否启用图像增强
-            # os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true") 确保如果环境变量未设置，默认为 "true"
-            enable_enhancement = os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true").lower() == "true"
-            # 声明 compressed_image 变量，以便在if/else之外使用
-            compressed_image_final = None  # 或者直接在各分支内赋值
+#     def analyze_image(self, image_content: bytes, filename: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+#         """使用OpenAI模型分析图像"""
+#         try:
+#             # 检查是否启用图像增强
+#             # os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true") 确保如果环境变量未设置，默认为 "true"
+#             enable_enhancement = os.getenv("ENABLE_IMAGE_ENHANCEMENT", "true").lower() == "true"
+#             # 声明 compressed_image 变量，以便在if/else之外使用
+#             compressed_image_final = None  # 或者直接在各分支内赋值
 
-            if enable_enhancement:
-                # 启用图像增强处理
-                print("启用图像增强处理")
-                # 1. 增强图像
-                enhanced_image = enhance_image_for_ocr(image_content, filename)
-                # 2. 压缩增强后的图像
-                compressed_image_final = compress_image(enhanced_image, filename)
+#             if enable_enhancement:
+#                 # 启用图像增强处理
+#                 print("启用图像增强处理")
+#                 # 1. 增强图像
+#                 enhanced_image = enhance_image_for_ocr(image_content, filename)
+#                 # 2. 压缩增强后的图像
+#                 compressed_image_final = compress_image(enhanced_image, filename)
 
-                # 保存处理后的图像到本地output文件夹 (可选，调试用)
-                # os.makedirs("output", exist_ok=True)  # 确保output文件夹存在
-                # with open(f"output/enhanced_{filename}", "wb") as f:
-                #     f.write(enhanced_image)
-            else:
-                # 不启用增强时，直接压缩原始图像
-                print("使用原始图像处理 (图像增强已禁用)")
-                compressed_image_final = compress_image(image_content, filename)
+#                 # 保存处理后的图像到本地output文件夹 (可选，调试用)
+#                 # os.makedirs("output", exist_ok=True)  # 确保output文件夹存在
+#                 # with open(f"output/enhanced_{filename}", "wb") as f:
+#                     #     f.write(enhanced_image)
+#             else:
+#                 # 不启用增强时，直接压缩原始图像
+#                 print("使用原始图像处理 (图像增强已禁用)")
+#                 compressed_image_final = compress_image(image_content, filename)
 
-            # 确保 compressed_image_final 在这里已经被赋值
-            image_data_uri = f"data:image/jpeg;base64,{compressed_image_final}"
-            
-            # 使用结构化输出
-            response = self.client.beta.chat.completions.parse(
-                model=self.deployment,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "你是一个专业的医疗设备图像分析助手。请仔细分析上传的图像并提取相关信息。"
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": get_openai_prompt()},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": image_data_uri, "detail": "low"},
-                            },
-                        ],
-                    }
-                ],
-                response_format=OCRResponse,
-                max_tokens=500,
-            )
-            
-            ocr_result, _ = self.extract_result(response)
-            
-            # 提取OpenAI模型的usage信息
-            usage_info = {}
-            if hasattr(response, 'usage') and response.usage:
-                usage_info = {
-                    "total_tokens": response.usage.total_tokens,
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens
-                }
-            
-            return ocr_result, usage_info
-            
-        except Exception as e:
-            return {"error": f"OpenAI模型调用失败: {str(e)}"}, {}
-    
-    def extract_result(self, response: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """从OpenAI API响应中提取结果"""
-        try:
-            # 从结构化输出中提取数据
-            parsed_response = response.choices[0].message.parsed
-            if parsed_response:
-                # 将Pydantic模型转换为字典
-                result_dict = parsed_response.model_dump()
-                return result_dict, {}
-            else:
-                # 如果解析失败，尝试从content中提取
-                content = response.choices[0].message.content
-                json_match = re.search(r"\{.*\}", content, re.DOTALL)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    return result, {}
-                else:
-                    return {"error": "未找到有效的响应数据"}, {}
-        except Exception as e:
-            return {"error": f"OpenAI结果解析失败: {str(e)}"}, {}
+#             # 确保 compressed_image_final 在这里已经被赋值
+#             image_data_uri = f"data:image/jpeg;base64,{compressed_image_final}"
+
+#             # 使用结构化输出
+#             response = self.client.beta.chat.completions.parse(
+#                 model=self.deployment,
+#                 messages=[
+#                     {
+#                         "role": "system",
+#                         "content": "你是一个专业的医疗设备图像分析助手。请仔细分析上传的图像并提取相关信息。"
+#                     },
+#                     {
+#                         "role": "user",
+#                         "content": [
+#                             {"type": "text", "text": get_openai_prompt()},
+#                             {
+#                                 "type": "image_url",
+#                                 "image_url": {"url": image_data_uri, "detail": "low"},
+#                             },
+#                         ],
+#                     }
+#                 ],
+#                 response_format=OCRResponse,
+#                 max_tokens=500,
+#             )
+
+#             ocr_result, _ = self.extract_result(response)
+
+#             # 提取OpenAI模型的usage信息
+#             usage_info = {}
+#             if hasattr(response, 'usage') and response.usage:
+#                 usage_info = {
+#                     "total_tokens": response.usage.total_tokens,
+#                     "prompt_tokens": response.usage.prompt_tokens,
+#                     "completion_tokens": response.usage.completion_tokens
+#                 }
+
+#             return ocr_result, usage_info
+
+#         except Exception as e:
+#             return {"error": f"OpenAI模型调用失败: {str(e)}"}, {}
+
+#     def extract_result(self, response: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+#         """从OpenAI API响应中提取结果"""
+#         try:
+#             # 从结构化输出中提取数据
+#             parsed_response = response.choices[0].message.parsed
+#             if parsed_response:
+#                 # 将Pydantic模型转换为字典
+#                 result_dict = parsed_response.model_dump()
+#                 return result_dict, {}
+#             else:
+#                 # 如果解析失败，尝试从content中提取
+#                 content = response.choices[0].message.content
+#                 json_match = re.search(r"\{.*\}", content, re.DOTALL)
+#                 if json_match:
+#                     result = json.loads(json_match.group())
+#                     return result, {}
+#                 else:
+#                     return {"error": "未找到有效的响应数据"}, {}
+#         except Exception as e:
+#             return {"error": f"OpenAI结果解析失败: {str(e)}"}, {}
 
 
 class QwenOCRModel(BaseOCRModel):
@@ -412,14 +412,14 @@ class OCRModelFactory:
                 min_pixels=kwargs.get("min_pixels", 3136),
                 max_pixels=kwargs.get("max_pixels", 6422528)
             )
-        elif model_type.lower() == "openai":
-            return OpenAIOCRModel(
-                endpoint=kwargs.get("azure_openai_endpoint"),
-                api_key=kwargs.get("azure_openai_api_key"),
-                api_version=kwargs.get("azure_openai_api_version"),
-                deployment=kwargs.get("azure_openai_deployment"),
-                model=kwargs.get("azure_openai_model")
-            )
+        # elif model_type.lower() == "openai":
+        #     return OpenAIOCRModel(
+        #         endpoint=kwargs.get("azure_openai_endpoint"),
+        #         api_key=kwargs.get("azure_openai_api_key"),
+        #         api_version=kwargs.get("azure_openai_api_version"),
+        #         deployment=kwargs.get("azure_openai_deployment"),
+        #         model=kwargs.get("azure_openai_model")
+        #     )
         elif model_type.lower() == "gemini":
             return GeminiOCRModel(
                 api_key=kwargs.get("gemini_api_key")
@@ -437,11 +437,11 @@ def get_ocr_model(model_type: str = None) -> BaseOCRModel:
         "dashscope_api_key": os.getenv("DASHSCOPE_API_KEY"),
         "min_pixels": int(os.getenv("MIN_PIXELS", 3136)),
         "max_pixels": int(os.getenv("MAX_PIXELS", 6422528)),
-        "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "azure_openai_api_key": os.getenv("AZURE_OPENAI_API_KEY"),
-        "azure_openai_api_version": os.getenv("AZURE_OPENAI_API_VERSION"),
-        "azure_openai_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
-        "azure_openai_model": os.getenv("AZURE_OPENAI_MODEL"),
+        # "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        # "azure_openai_api_key": os.getenv("AZURE_OPENAI_API_KEY"),
+        # "azure_openai_api_version": os.getenv("AZURE_OPENAI_API_VERSION"),
+        # "azure_openai_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        # "azure_openai_model": os.getenv("AZURE_OPENAI_MODEL"),
         "gemini_api_key": os.getenv("GEMINI_API_KEY")
     }
     

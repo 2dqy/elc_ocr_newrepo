@@ -2,29 +2,29 @@
 OCR模型提示词配置文件
 包含千问、OpenAI和Gemini模型的提示词
 """
-def get_openai_prompt() -> str:
-    """获取OpenAI模型的提示词"""
-    return """Extract the three most important LCD font digits values in this image. Pay attention to the following rules:
-1. Correct placement of decimal points is critical. Do not ignore decimal points.
-2. Extract the numbers explicitly based on their **row position on the screen**, following this exact logic:
-   - Assign the **top-most row value (SYS)** to 'primary'.
-   - Assign the **middle row value (DIA)** to 'secondary'.
-   - Assign the **bottom-most row value (PUL)** to 'tertiary'.
-3. Ignore small numbers displayed as part of time, date(e.g., 18:31).
-4. The value of category can only be "blood_pressure", "blood_sugar" or "Not relevant".
-5. If an error code (e.g., E20, E4, Err) is detected, return the following error: {"error": "There seems to be an issue with the device"}.
-Output format:
-- For three values: {"name": if detected, "SYS": top row number (integer), "DIA": middle row number (integer), "PUL": bottom row number (integer)}
-- For one value: {"name": if detected the brand name, "glucose": detected value (formatted as float)}
-- For error codes: {"error": "There seems to be an issue with the device"}
-- Pay attention to decimal points. If you get it wrong, it will be the end of the world.
-- Seven-segment number processing:
-a. Pay attention to the confusion of the number form (1 vs 7, 2 vs 5).
-b. The decimal point may be an independent dot symbol. If it is difficult to identify, guess it based on the normal blood sugar range (2.0–20.0 mmol/L):
-c. For example, "15" may be "1.5", and "179" may be "17.9".
-If the image does not contain a seven-segment display or relevant data, set the category to "Not relevant".
-If the image does not contain a seven-segment display or relevant data, set the category to "Not relevant".
-"""
+# def get_openai_prompt() -> str:
+#     """获取OpenAI模型的提示词"""
+#     return """Extract the three most important LCD font digits values in this image. Pay attention to the following rules:
+# 1. Correct placement of decimal points is critical. Do not ignore decimal points.
+# 2. Extract the numbers explicitly based on their **row position on the screen**, following this exact logic:
+#    - Assign the **top-most row value (SYS)** to 'primary'.
+#    - Assign the **middle row value (DIA)** to 'secondary'.
+#    - Assign the **bottom-most row value (PUL)** to 'tertiary'.
+# 3. Ignore small numbers displayed as part of time, date(e.g., 18:31).
+# 4. The value of category can only be "blood_pressure", "blood_sugar" or "Not relevant".
+# 5. If an error code (e.g., E20, E4, Err) is detected, return the following error: {"error": "There seems to be an issue with the device"}.
+# Output format:
+# - For three values: {"name": if detected, "SYS": top row number (integer), "DIA": middle row number (integer), "PUL": bottom row number (integer)}
+# - For one value: {"name": if detected the brand name, "glucose": detected value (formatted as float)}
+# - For error codes: {"error": "There seems to be an issue with the device"}
+# - Pay attention to decimal points. If you get it wrong, it will be the end of the world.
+# - Seven-segment number processing:
+# a. Pay attention to the confusion of the number form (1 vs 7, 2 vs 5).
+# b. The decimal point may be an independent dot symbol. If it is difficult to identify, guess it based on the normal blood sugar range (2.0–20.0 mmol/L):
+# c. For example, "15" may be "1.5", and "179" may be "17.9".
+# If the image does not contain a seven-segment display or relevant data, set the category to "Not relevant".
+# If the image does not contain a seven-segment display or relevant data, set the category to "Not relevant".
+# """
 
 
 def get_qwen_prompt() -> str:
