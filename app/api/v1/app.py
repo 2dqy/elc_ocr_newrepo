@@ -13,7 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import APIRouter, Request, File, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
-import dashscope  # 如果是阿里云多模态 SDK，可以留下
+# import dashscope  # 如果是阿里云多模态 SDK，可以留下
 
 # ===== 本地模块（数据库 & 配置）=====
 from app.core.config import settings
@@ -213,12 +213,12 @@ async def upload_image(
         ocr_model = get_ocr_model()
 
         # 根据模型类型处理图像
-        model_type = os.getenv("MODEL_TYPE", "qwen").lower()
-        if model_type == "qwen":
-            # 千问模型使用处理后的图像
-            processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
-            image_for_analysis = processed_image
-        elif model_type == "gemini":
+        model_type = os.getenv("MODEL_TYPE", "gemini").lower()
+        # if model_type == "qwen":
+        #     # 千问模型使用处理后的图像
+        #     processed_image = process_image(file_content, MIN_PIXELS, MAX_PIXELS)
+        #     image_for_analysis = processed_image
+        # elif model_type == "gemini":
             # Gemini模型使用原始图像（不需要预处理）
             image_for_analysis = file_content
             
